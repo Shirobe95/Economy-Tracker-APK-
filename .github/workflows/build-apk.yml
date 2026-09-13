@@ -9,6 +9,9 @@ on:
 env:
   FLUTTER_VERSION: "3.47.3"
 
+permissions:
+  contents: write
+
 jobs:
   analyze-and-test:
     name: Analyze & test
@@ -68,3 +71,42 @@ jobs:
           path: build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      # Publica el APK en una rama huerfana de entrega. El artifact de
+      # Actions se descarga desde un almacenamiento que algunas redes
+      # bloquean; una rama del propio repositorio se clona con git y llega a
+      # cualquier sitio donde llegue el codigo.
+      - name: Publicar APK en la rama de entrega
+        if: github.ref_name == 'claude/economy-tracker-apk-9a1e7k'
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/entrega
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+             /tmp/entrega/economy-tracker-arm64.apk
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             /tmp/entrega/economy-tracker-universal.apk
+
+          cd /tmp/entrega
+          {
+            echo "# APK de Economy Tracker"
+            echo
+            echo "Generado desde \`${GITHUB_SHA}\`."
+            echo
+            echo "- \`economy-tracker-arm64.apk\`: para cualquier movil moderno."
+            echo "- \`economy-tracker-universal.apk\`: funciona en todos, ocupa mas."
+            echo
+            echo "Rama de entrega: se reescribe en cada build y puede borrarse"
+            echo "sin afectar al codigo."
+          } > README.md
+
+          git init -q
+          git config user.email "noreply@anthropic.com"
+          git config user.name "Economy Tracker CI"
+          git checkout -q -b apk-entrega
+          git add -A
+          git commit -q -m "build: APK desde ${GITHUB_SHA}"
+          git push -q --force \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            apk-entrega
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
