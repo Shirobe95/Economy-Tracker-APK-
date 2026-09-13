@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/database/enums.dart';
 import '../../core/widgets/app_shell.dart';
 import '../../features/accounts/accounts_screen.dart';
 import '../../features/calendar/calendar_screen.dart';
 import '../../features/categories/categories_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/expenses/expenses_screen.dart';
+import '../../features/expenses/recurring_rule_form_screen.dart';
 import '../../features/forecast/forecast_screen.dart';
 import '../../features/goals/goals_screen.dart';
 import '../../features/income/income_screen.dart';
+import '../../features/movements/movement_detail_screen.dart';
+import '../../features/movements/movement_form_screen.dart';
+import '../../features/movements/new_movement_sheet.dart';
 import '../../features/projects/projects_screen.dart';
 import '../../features/reports/reports_screen.dart';
 import '../../features/salaries/salaries_screen.dart';
@@ -44,6 +49,56 @@ GoRouter buildRouter() {
             builder: (context, state) => const ForecastScreen(),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/gastos/nuevo',
+        builder: (context, state) =>
+            const MovementFormScreen(type: MovementType.expense),
+      ),
+      GoRoute(
+        path: '/ingresos/nuevo',
+        builder: (context, state) =>
+            const MovementFormScreen(type: MovementType.otherIncome),
+      ),
+      GoRoute(
+        path: '/salarios/nuevo',
+        builder: (context, state) =>
+            const MovementFormScreen(type: MovementType.salary),
+      ),
+      GoRoute(
+        path: '/proyectos/cobros/nuevo',
+        builder: (context, state) => MovementFormScreen(
+          type: MovementType.projectIncome,
+          projectId: int.tryParse(state.uri.queryParameters['proyecto'] ?? ''),
+        ),
+      ),
+      GoRoute(
+        path: '/movimientos/transferencia',
+        builder: (context, state) =>
+            const MovementFormScreen(type: MovementType.transfer),
+      ),
+      GoRoute(
+        path: '/movimientos/:id',
+        builder: (context, state) => MovementDetailScreen(
+          movementId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
+      GoRoute(
+        path: '/movimientos/:id/editar',
+        builder: (context, state) => MovementFormScreen(
+          type: state.extra as MovementType? ?? MovementType.expense,
+          movementId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
+      GoRoute(
+        path: '/reglas/nueva',
+        builder: (context, state) => const RecurringRuleFormScreen(),
+      ),
+      GoRoute(
+        path: '/reglas/:id/editar',
+        builder: (context, state) => RecurringRuleFormScreen(
+          ruleId: int.parse(state.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/proyectos',
@@ -102,7 +157,11 @@ class _Shell extends StatelessWidget {
       currentIndex: _currentIndex,
       onDestinationSelected: (index) =>
           context.go(shellDestinations[index].route),
-      onCreatePressed: () => context.push('/nuevo-movimiento'),
+      onCreatePressed: () => showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => const NewMovementSheet(),
+      ),
       child: child,
     );
   }
