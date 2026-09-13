@@ -2552,17 +2552,15 @@ class $SavingsGoalsTable extends SavingsGoals
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _targetDateMeta = const VerificationMeta(
-    'targetDate',
-  );
   @override
-  late final GeneratedColumn<DateTime> targetDate = GeneratedColumn<DateTime>(
-    'target_date',
-    aliasedName,
-    true,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-  );
+  late final GeneratedColumnWithTypeConverter<DateTime?, String> targetDate =
+      GeneratedColumn<String>(
+        'target_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<DateTime?>($SavingsGoalsTable.$convertertargetDaten);
   static const VerificationMeta _isArchivedMeta = const VerificationMeta(
     'isArchived',
   );
@@ -2663,12 +2661,6 @@ class $SavingsGoalsTable extends SavingsGoals
     } else if (isInserting) {
       context.missing(_currencyMeta);
     }
-    if (data.containsKey('target_date')) {
-      context.handle(
-        _targetDateMeta,
-        targetDate.isAcceptableOrUnknown(data['target_date']!, _targetDateMeta),
-      );
-    }
     if (data.containsKey('is_archived')) {
       context.handle(
         _isArchivedMeta,
@@ -2716,9 +2708,11 @@ class $SavingsGoalsTable extends SavingsGoals
         DriftSqlType.string,
         data['${effectivePrefix}currency'],
       )!,
-      targetDate: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}target_date'],
+      targetDate: $SavingsGoalsTable.$convertertargetDaten.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}target_date'],
+        ),
       ),
       isArchived: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
@@ -2731,6 +2725,11 @@ class $SavingsGoalsTable extends SavingsGoals
   $SavingsGoalsTable createAlias(String alias) {
     return $SavingsGoalsTable(attachedDatabase, alias);
   }
+
+  static TypeConverter<DateTime, String> $convertertargetDate =
+      civilDateConverter;
+  static TypeConverter<DateTime?, String?> $convertertargetDaten =
+      NullAwareTypeConverter.wrap($convertertargetDate);
 }
 
 class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
@@ -2772,7 +2771,9 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
     }
     map['currency'] = Variable<String>(currency);
     if (!nullToAbsent || targetDate != null) {
-      map['target_date'] = Variable<DateTime>(targetDate);
+      map['target_date'] = Variable<String>(
+        $SavingsGoalsTable.$convertertargetDaten.toSql(targetDate),
+      );
     }
     map['is_archived'] = Variable<bool>(isArchived);
     return map;
@@ -2980,7 +2981,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     Expression<int>? currentAmount,
     Expression<int>? monthlyContribution,
     Expression<String>? currency,
-    Expression<DateTime>? targetDate,
+    Expression<String>? targetDate,
     Expression<bool>? isArchived,
   }) {
     return RawValuesInsertable({
@@ -3052,7 +3053,9 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
       map['currency'] = Variable<String>(currency.value);
     }
     if (targetDate.present) {
-      map['target_date'] = Variable<DateTime>(targetDate.value);
+      map['target_date'] = Variable<String>(
+        $SavingsGoalsTable.$convertertargetDaten.toSql(targetDate.value),
+      );
     }
     if (isArchived.present) {
       map['is_archived'] = Variable<bool>(isArchived.value);
@@ -3225,28 +3228,24 @@ class $RecurringRulesTable extends RecurringRules
     requiredDuringInsert: false,
     defaultValue: const Constant(1),
   );
-  static const VerificationMeta _startDateMeta = const VerificationMeta(
-    'startDate',
-  );
   @override
-  late final GeneratedColumn<DateTime> startDate = GeneratedColumn<DateTime>(
-    'start_date',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _endDateMeta = const VerificationMeta(
-    'endDate',
-  );
+  late final GeneratedColumnWithTypeConverter<DateTime, String> startDate =
+      GeneratedColumn<String>(
+        'start_date',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($RecurringRulesTable.$converterstartDate);
   @override
-  late final GeneratedColumn<DateTime> endDate = GeneratedColumn<DateTime>(
-    'end_date',
-    aliasedName,
-    true,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-  );
+  late final GeneratedColumnWithTypeConverter<DateTime?, String> endDate =
+      GeneratedColumn<String>(
+        'end_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<DateTime?>($RecurringRulesTable.$converterendDaten);
   static const VerificationMeta _monthDayMeta = const VerificationMeta(
     'monthDay',
   );
@@ -3269,17 +3268,15 @@ class $RecurringRulesTable extends RecurringRules
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _nextDateMeta = const VerificationMeta(
-    'nextDate',
-  );
   @override
-  late final GeneratedColumn<DateTime> nextDate = GeneratedColumn<DateTime>(
-    'next_date',
-    aliasedName,
-    true,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-  );
+  late final GeneratedColumnWithTypeConverter<DateTime?, String> nextDate =
+      GeneratedColumn<String>(
+        'next_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<DateTime?>($RecurringRulesTable.$converternextDaten);
   static const VerificationMeta _isActiveMeta = const VerificationMeta(
     'isActive',
   );
@@ -3415,20 +3412,6 @@ class $RecurringRulesTable extends RecurringRules
         ),
       );
     }
-    if (data.containsKey('start_date')) {
-      context.handle(
-        _startDateMeta,
-        startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_startDateMeta);
-    }
-    if (data.containsKey('end_date')) {
-      context.handle(
-        _endDateMeta,
-        endDate.isAcceptableOrUnknown(data['end_date']!, _endDateMeta),
-      );
-    }
     if (data.containsKey('month_day')) {
       context.handle(
         _monthDayMeta,
@@ -3439,12 +3422,6 @@ class $RecurringRulesTable extends RecurringRules
       context.handle(
         _weekdayMeta,
         weekday.isAcceptableOrUnknown(data['weekday']!, _weekdayMeta),
-      );
-    }
-    if (data.containsKey('next_date')) {
-      context.handle(
-        _nextDateMeta,
-        nextDate.isAcceptableOrUnknown(data['next_date']!, _nextDateMeta),
       );
     }
     if (data.containsKey('is_active')) {
@@ -3523,13 +3500,17 @@ class $RecurringRulesTable extends RecurringRules
         DriftSqlType.int,
         data['${effectivePrefix}interval_count'],
       )!,
-      startDate: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}start_date'],
-      )!,
-      endDate: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}end_date'],
+      startDate: $RecurringRulesTable.$converterstartDate.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}start_date'],
+        )!,
+      ),
+      endDate: $RecurringRulesTable.$converterendDaten.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}end_date'],
+        ),
       ),
       monthDay: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
@@ -3539,9 +3520,11 @@ class $RecurringRulesTable extends RecurringRules
         DriftSqlType.int,
         data['${effectivePrefix}weekday'],
       ),
-      nextDate: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}next_date'],
+      nextDate: $RecurringRulesTable.$converternextDaten.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}next_date'],
+        ),
       ),
       isActive: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
@@ -3563,6 +3546,15 @@ class $RecurringRulesTable extends RecurringRules
       movementTypeConverter;
   static TypeConverter<RecurrenceFrequency, String> $converterfrequency =
       recurrenceFrequencyConverter;
+  static TypeConverter<DateTime, String> $converterstartDate =
+      civilDateConverter;
+  static TypeConverter<DateTime, String> $converterendDate = civilDateConverter;
+  static TypeConverter<DateTime?, String?> $converterendDaten =
+      NullAwareTypeConverter.wrap($converterendDate);
+  static TypeConverter<DateTime, String> $converternextDate =
+      civilDateConverter;
+  static TypeConverter<DateTime?, String?> $converternextDaten =
+      NullAwareTypeConverter.wrap($converternextDate);
 }
 
 class RecurringRule extends DataClass implements Insertable<RecurringRule> {
@@ -3633,9 +3625,15 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
       );
     }
     map['interval_count'] = Variable<int>(intervalCount);
-    map['start_date'] = Variable<DateTime>(startDate);
+    {
+      map['start_date'] = Variable<String>(
+        $RecurringRulesTable.$converterstartDate.toSql(startDate),
+      );
+    }
     if (!nullToAbsent || endDate != null) {
-      map['end_date'] = Variable<DateTime>(endDate);
+      map['end_date'] = Variable<String>(
+        $RecurringRulesTable.$converterendDaten.toSql(endDate),
+      );
     }
     if (!nullToAbsent || monthDay != null) {
       map['month_day'] = Variable<int>(monthDay);
@@ -3644,7 +3642,9 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
       map['weekday'] = Variable<int>(weekday);
     }
     if (!nullToAbsent || nextDate != null) {
-      map['next_date'] = Variable<DateTime>(nextDate);
+      map['next_date'] = Variable<String>(
+        $RecurringRulesTable.$converternextDaten.toSql(nextDate),
+      );
     }
     map['is_active'] = Variable<bool>(isActive);
     map['auto_generate'] = Variable<bool>(autoGenerate);
@@ -3971,11 +3971,11 @@ class RecurringRulesCompanion extends UpdateCompanion<RecurringRule> {
     Expression<String>? currency,
     Expression<String>? frequency,
     Expression<int>? intervalCount,
-    Expression<DateTime>? startDate,
-    Expression<DateTime>? endDate,
+    Expression<String>? startDate,
+    Expression<String>? endDate,
     Expression<int>? monthDay,
     Expression<int>? weekday,
-    Expression<DateTime>? nextDate,
+    Expression<String>? nextDate,
     Expression<bool>? isActive,
     Expression<bool>? autoGenerate,
   }) {
@@ -4091,10 +4091,14 @@ class RecurringRulesCompanion extends UpdateCompanion<RecurringRule> {
       map['interval_count'] = Variable<int>(intervalCount.value);
     }
     if (startDate.present) {
-      map['start_date'] = Variable<DateTime>(startDate.value);
+      map['start_date'] = Variable<String>(
+        $RecurringRulesTable.$converterstartDate.toSql(startDate.value),
+      );
     }
     if (endDate.present) {
-      map['end_date'] = Variable<DateTime>(endDate.value);
+      map['end_date'] = Variable<String>(
+        $RecurringRulesTable.$converterendDaten.toSql(endDate.value),
+      );
     }
     if (monthDay.present) {
       map['month_day'] = Variable<int>(monthDay.value);
@@ -4103,7 +4107,9 @@ class RecurringRulesCompanion extends UpdateCompanion<RecurringRule> {
       map['weekday'] = Variable<int>(weekday.value);
     }
     if (nextDate.present) {
-      map['next_date'] = Variable<DateTime>(nextDate.value);
+      map['next_date'] = Variable<String>(
+        $RecurringRulesTable.$converternextDaten.toSql(nextDate.value),
+      );
     }
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
@@ -4328,28 +4334,24 @@ class $TransactionsTable extends Transactions
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _expectedDateMeta = const VerificationMeta(
-    'expectedDate',
-  );
   @override
-  late final GeneratedColumn<DateTime> expectedDate = GeneratedColumn<DateTime>(
-    'expected_date',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _actualDateMeta = const VerificationMeta(
-    'actualDate',
-  );
+  late final GeneratedColumnWithTypeConverter<DateTime, String> expectedDate =
+      GeneratedColumn<String>(
+        'expected_date',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($TransactionsTable.$converterexpectedDate);
   @override
-  late final GeneratedColumn<DateTime> actualDate = GeneratedColumn<DateTime>(
-    'actual_date',
-    aliasedName,
-    true,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-  );
+  late final GeneratedColumnWithTypeConverter<DateTime?, String> actualDate =
+      GeneratedColumn<String>(
+        'actual_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<DateTime?>($TransactionsTable.$converteractualDaten);
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
@@ -4511,23 +4513,6 @@ class $TransactionsTable extends Transactions
         ),
       );
     }
-    if (data.containsKey('expected_date')) {
-      context.handle(
-        _expectedDateMeta,
-        expectedDate.isAcceptableOrUnknown(
-          data['expected_date']!,
-          _expectedDateMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_expectedDateMeta);
-    }
-    if (data.containsKey('actual_date')) {
-      context.handle(
-        _actualDateMeta,
-        actualDate.isAcceptableOrUnknown(data['actual_date']!, _actualDateMeta),
-      );
-    }
     if (data.containsKey('notes')) {
       context.handle(
         _notesMeta,
@@ -4617,13 +4602,17 @@ class $TransactionsTable extends Transactions
         DriftSqlType.int,
         data['${effectivePrefix}recurring_rule_id'],
       ),
-      expectedDate: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}expected_date'],
-      )!,
-      actualDate: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}actual_date'],
+      expectedDate: $TransactionsTable.$converterexpectedDate.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}expected_date'],
+        )!,
+      ),
+      actualDate: $TransactionsTable.$converteractualDaten.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}actual_date'],
+        ),
       ),
       notes: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -4645,6 +4634,12 @@ class $TransactionsTable extends Transactions
       movementTypeConverter;
   static TypeConverter<MovementStatus, String> $converterstatus =
       movementStatusConverter;
+  static TypeConverter<DateTime, String> $converterexpectedDate =
+      civilDateConverter;
+  static TypeConverter<DateTime, String> $converteractualDate =
+      civilDateConverter;
+  static TypeConverter<DateTime?, String?> $converteractualDaten =
+      NullAwareTypeConverter.wrap($converteractualDate);
 }
 
 class Transaction extends DataClass implements Insertable<Transaction> {
@@ -4737,9 +4732,15 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     if (!nullToAbsent || recurringRuleId != null) {
       map['recurring_rule_id'] = Variable<int>(recurringRuleId);
     }
-    map['expected_date'] = Variable<DateTime>(expectedDate);
+    {
+      map['expected_date'] = Variable<String>(
+        $TransactionsTable.$converterexpectedDate.toSql(expectedDate),
+      );
+    }
     if (!nullToAbsent || actualDate != null) {
-      map['actual_date'] = Variable<DateTime>(actualDate);
+      map['actual_date'] = Variable<String>(
+        $TransactionsTable.$converteractualDaten.toSql(actualDate),
+      );
     }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
@@ -5102,8 +5103,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<int>? salarySourceId,
     Expression<int>? savingsGoalId,
     Expression<int>? recurringRuleId,
-    Expression<DateTime>? expectedDate,
-    Expression<DateTime>? actualDate,
+    Expression<String>? expectedDate,
+    Expression<String>? actualDate,
     Expression<String>? notes,
     Expression<bool>? isDeleted,
   }) {
@@ -5234,10 +5235,14 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       map['recurring_rule_id'] = Variable<int>(recurringRuleId.value);
     }
     if (expectedDate.present) {
-      map['expected_date'] = Variable<DateTime>(expectedDate.value);
+      map['expected_date'] = Variable<String>(
+        $TransactionsTable.$converterexpectedDate.toSql(expectedDate.value),
+      );
     }
     if (actualDate.present) {
-      map['actual_date'] = Variable<DateTime>(actualDate.value);
+      map['actual_date'] = Variable<String>(
+        $TransactionsTable.$converteractualDaten.toSql(actualDate.value),
+      );
     }
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);

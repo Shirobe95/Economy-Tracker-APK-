@@ -275,6 +275,33 @@ void main() {
     );
   });
 
+  test('una fecha financiera se recupera como el mismo dia civil', () async {
+    final account = await insertAccount();
+    await db
+        .into(db.transactions)
+        .insert(
+          TransactionsCompanion.insert(
+            type: MovementType.expense,
+            status: MovementStatus.previsto,
+            concept: 'Gasto de fin de ano',
+            amount: 1000,
+            currency: 'EUR',
+            accountId: account,
+            expectedDate: DateTime.utc(2026, 12, 31),
+          ),
+        );
+
+    final row = await db.select(db.transactions).getSingle();
+    // Guardada como fecha civil: el dia no depende del huso del dispositivo.
+    expect(row.expectedDate, DateTime.utc(2026, 12, 31));
+    expect(row.expectedDate.isUtc, isTrue);
+
+    final stored = await db
+        .customSelect('SELECT expected_date FROM transactions')
+        .getSingle();
+    expect(stored.read<String>('expected_date'), '2026-12-31');
+  });
+
   test('un objetivo de ahorro exige importe objetivo positivo', () async {
     await expectLater(
       db

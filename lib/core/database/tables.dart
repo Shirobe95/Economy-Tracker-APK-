@@ -138,7 +138,7 @@ class SavingsGoals extends Table with _Timestamps {
 
   TextColumn get currency => text().withLength(min: 3, max: 3)();
 
-  DateTimeColumn get targetDate => dateTime().nullable()();
+  TextColumn get targetDate => text().nullable().map(civilDateConverter)();
 
   BoolColumn get isArchived => boolean().withDefault(const Constant(false))();
 
@@ -176,15 +176,15 @@ class RecurringRules extends Table with _Timestamps {
 
   IntColumn get intervalCount => integer().withDefault(const Constant(1))();
 
-  DateTimeColumn get startDate => dateTime()();
+  TextColumn get startDate => text().map(civilDateConverter)();
 
-  DateTimeColumn get endDate => dateTime().nullable()();
+  TextColumn get endDate => text().nullable().map(civilDateConverter)();
 
   IntColumn get monthDay => integer().nullable()();
 
   IntColumn get weekday => integer().nullable()();
 
-  DateTimeColumn get nextDate => dateTime().nullable()();
+  TextColumn get nextDate => text().nullable().map(civilDateConverter)();
 
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
 
@@ -258,10 +258,10 @@ class Transactions extends Table with _Timestamps {
       integer().nullable().references(RecurringRules, #id)();
 
   /// Fecha en la que se espera que ocurra. Siempre existe.
-  DateTimeColumn get expectedDate => dateTime()();
+  TextColumn get expectedDate => text().map(civilDateConverter)();
 
   /// Fecha en la que ocurrio de verdad. Solo en estados realizados.
-  DateTimeColumn get actualDate => dateTime().nullable()();
+  TextColumn get actualDate => text().nullable().map(civilDateConverter)();
 
   TextColumn get notes => text().nullable().withLength(max: 500)();
 

@@ -65,3 +65,43 @@ String _accountTypeCode(AccountType v) => v.code;
 String _categoryKindCode(CategoryKind v) => v.code;
 String _recurrenceFrequencyCode(RecurrenceFrequency v) => v.code;
 String _billingTypeCode(BillingType v) => v.code;
+
+/// Fecha civil sin hora, guardada como texto `YYYY-MM-DD`.
+///
+/// Una fecha financiera es un dia del calendario, no un instante. Guardarla
+/// como timestamp obliga a elegir una hora y hace que el dia leido dependa de
+/// la zona horaria del dispositivo: medianoche UTC es el dia anterior en
+/// cualquier zona con offset negativo. El texto ISO no tiene ese problema y
+/// ademas ordena y compara correctamente de forma lexicografica.
+///
+/// Los campos `createdAt` y `updatedAt` si son instantes y siguen siendo
+/// timestamps.
+class CivilDateConverter extends TypeConverter<DateTime, String> {
+  const CivilDateConverter();
+
+  @override
+  DateTime fromSql(String fromDb) {
+    final parts = fromDb.split('-');
+    if (parts.length != 3) {
+      throw ArgumentError.value(fromDb, 'fecha', 'Formato esperado YYYY-MM-DD');
+    }
+    return DateTime.utc(
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    );
+  }
+
+  @override
+  String toSql(DateTime value) => format(value);
+
+  /// Representacion textual de un dia, para comparar en consultas SQL.
+  static String format(DateTime value) {
+    final utc = value.isUtc ? value : value.toUtc();
+    final month = utc.month.toString().padLeft(2, '0');
+    final day = utc.day.toString().padLeft(2, '0');
+    return '${utc.year.toString().padLeft(4, '0')}-$month-$day';
+  }
+}
+
+const civilDateConverter = CivilDateConverter();

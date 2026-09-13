@@ -41,3 +41,14 @@ abstract final class Dates {
   static int monthsBetween(DateTime from, DateTime to) =>
       (to.year - from.year) * 12 + (to.month - from.month);
 }
+
+/// Texto `YYYY-MM-DD` de un dia, tal como se guarda en la base.
+///
+/// Se usa para comparar rangos de fecha en consultas SQL, donde el orden
+/// lexicografico del texto ISO coincide con el orden cronologico.
+String isoDay(DateTime value) {
+  final utc = value.isUtc ? value : value.toUtc();
+  final month = utc.month.toString().padLeft(2, '0');
+  final day = utc.day.toString().padLeft(2, '0');
+  return '${utc.year.toString().padLeft(4, '0')}-$month-$day';
+}
