@@ -277,7 +277,7 @@ class _SavingsCard extends StatelessWidget {
     final ratio = goal.ratio;
 
     return FinanceCard(
-      onTap: () {},
+      onTap: () => context.push('/objetivos'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
