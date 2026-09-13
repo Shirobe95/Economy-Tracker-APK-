@@ -302,6 +302,135 @@ void main() {
     expect(stored.read<String>('expected_date'), '2026-12-31');
   });
 
+  group('integridad referencial', () {
+    // Drift descarta las FOREIGN KEY generadas por references() cuando la
+    // tabla declara customConstraints, asi que conviene comprobar que las
+    // relaciones declaradas a mano existen de verdad.
+    test('las claves foraneas estan activas en la conexion', () async {
+      final row = await db.customSelect('PRAGMA foreign_keys').getSingle();
+      expect(row.read<int>('foreign_keys'), 1);
+    });
+
+    test('un proyecto no puede apuntar a un cliente inexistente', () async {
+      await expectLater(
+        db
+            .into(db.projects)
+            .insert(
+              ProjectsCompanion.insert(
+                clientId: 999,
+                name: 'Proyecto huerfano',
+                currency: 'EUR',
+              ),
+            ),
+        throwsA(isA<Exception>()),
+      );
+    });
+
+    test('no se borra un cliente que tiene proyectos', () async {
+      final clientId = await db
+          .into(db.clients)
+          .insert(ClientsCompanion.insert(name: 'Cliente'));
+      await db
+          .into(db.projects)
+          .insert(
+            ProjectsCompanion.insert(
+              clientId: clientId,
+              name: 'Proyecto',
+              currency: 'EUR',
+            ),
+          );
+
+      await expectLater(
+        (db.delete(db.clients)..where((c) => c.id.equals(clientId))).go(),
+        throwsA(isA<Exception>()),
+      );
+    });
+
+    test('no se borra una cuenta con movimientos', () async {
+      final account = await insertAccount();
+      await db
+          .into(db.transactions)
+          .insert(
+            TransactionsCompanion.insert(
+              type: MovementType.expense,
+              status: MovementStatus.previsto,
+              concept: 'Gasto',
+              amount: 1000,
+              currency: 'EUR',
+              accountId: account,
+              expectedDate: DateTime.utc(2026, 9, 1),
+            ),
+          );
+
+      await expectLater(
+        (db.delete(db.accounts)..where((a) => a.id.equals(account))).go(),
+        throwsA(isA<Exception>()),
+      );
+    });
+
+    test(
+      'un movimiento no puede apuntar a una categoria inexistente',
+      () async {
+        final account = await insertAccount();
+        await expectLater(
+          db
+              .into(db.transactions)
+              .insert(
+                TransactionsCompanion.insert(
+                  type: MovementType.expense,
+                  status: MovementStatus.previsto,
+                  concept: 'Gasto',
+                  amount: 1000,
+                  currency: 'EUR',
+                  accountId: account,
+                  categoryId: const Value(999),
+                  expectedDate: DateTime.utc(2026, 9, 1),
+                ),
+              ),
+          throwsA(isA<Exception>()),
+        );
+      },
+    );
+
+    test('el cliente del cobro debe ser el del proyecto', () async {
+      final account = await insertAccount();
+      final clientA = await db
+          .into(db.clients)
+          .insert(ClientsCompanion.insert(name: 'Cliente A'));
+      final clientB = await db
+          .into(db.clients)
+          .insert(ClientsCompanion.insert(name: 'Cliente B'));
+      final project = await db
+          .into(db.projects)
+          .insert(
+            ProjectsCompanion.insert(
+              clientId: clientA,
+              name: 'Proyecto de A',
+              currency: 'EUR',
+            ),
+          );
+
+      await expectLater(
+        db
+            .into(db.transactions)
+            .insert(
+              TransactionsCompanion.insert(
+                type: MovementType.projectIncome,
+                status: MovementStatus.previsto,
+                concept: 'Cobro cruzado',
+                amount: 1000,
+                currency: 'EUR',
+                accountId: account,
+                projectId: Value(project),
+                clientId: Value(clientB),
+                expectedDate: DateTime.utc(2026, 9, 1),
+              ),
+            ),
+        throwsA(isA<Exception>()),
+      );
+    });
+  });
+
   test('un objetivo de ahorro exige importe objetivo positivo', () async {
     await expectLater(
       db

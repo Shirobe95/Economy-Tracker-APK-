@@ -23,3 +23,6 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
 /// Base de datos en memoria, para tests y renders.
 AppDatabase openInMemoryDatabase() =>
     AppDatabase(DatabaseConnection(NativeDatabase.memory()));
+
+/// Alias legible en tests que no montan interfaz.
+AppDatabase openTestDatabase() => openInMemoryDatabase();

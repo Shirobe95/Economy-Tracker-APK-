@@ -1,3 +1,13 @@
+/// Nota sobre las claves foraneas de este archivo.
+///
+/// Drift omite las `FOREIGN KEY` que generaria `references()` en cuanto la
+/// tabla declara `customConstraints`. Como casi todas las tablas de aqui
+/// necesitan CHECK o claves compuestas, todas sus relaciones se declaran
+/// explicitamente en `customConstraints`. Los `references()` de columna se
+/// conservan porque siguen dando el tipado y la relacion en el codigo
+/// generado, pero no son los que acaban en el esquema.
+library;
+
 import 'package:drift/drift.dart';
 
 import 'converters.dart';
@@ -57,6 +67,7 @@ class Categories extends Table with _Timestamps {
 
   @override
   List<String> get customConstraints => [
+    'FOREIGN KEY (parent_id) REFERENCES categories (id)',
     'CHECK (kind IN (${categoryKindConverter.sqlValues}))',
     // Autoparentesco rechazado. Los ciclos de varios niveles se validan en
     // el servicio de edicion, no en SQLite.
@@ -94,6 +105,7 @@ class Projects extends Table with _Timestamps {
     // Permite exigir desde transactions que el par (proyecto, cliente) sea
     // coherente con el cliente real del proyecto.
     'UNIQUE (id, client_id)',
+    'FOREIGN KEY (client_id) REFERENCES clients (id)',
     'CHECK ($_currencyCheck)',
     'CHECK (estimated_amount IS NULL OR estimated_amount >= 0)',
     'CHECK (billing_type IS NULL OR '
@@ -193,6 +205,8 @@ class RecurringRules extends Table with _Timestamps {
   @override
   List<String> get customConstraints => [
     'FOREIGN KEY (account_id, currency) REFERENCES accounts (id, currency)',
+    'FOREIGN KEY (destination_account_id) REFERENCES accounts (id)',
+    'FOREIGN KEY (category_id) REFERENCES categories (id)',
     'CHECK ($_currencyCheck)',
     'CHECK (type IN (${movementTypeConverter.sqlValues}))',
     'CHECK (frequency IN (${recurrenceFrequencyConverter.sqlValues}))',
@@ -273,6 +287,12 @@ class Transactions extends Table with _Timestamps {
     'FOREIGN KEY (account_id, currency) REFERENCES accounts (id, currency)',
     // El cliente del movimiento debe ser el cliente real del proyecto.
     'FOREIGN KEY (project_id, client_id) REFERENCES projects (id, client_id)',
+    'FOREIGN KEY (destination_account_id) REFERENCES accounts (id)',
+    'FOREIGN KEY (category_id) REFERENCES categories (id)',
+    'FOREIGN KEY (client_id) REFERENCES clients (id)',
+    'FOREIGN KEY (salary_source_id) REFERENCES salary_sources (id)',
+    'FOREIGN KEY (savings_goal_id) REFERENCES savings_goals (id)',
+    'FOREIGN KEY (recurring_rule_id) REFERENCES recurring_rules (id)',
     'CHECK ($_currencyCheck)',
     'CHECK (type IN (${movementTypeConverter.sqlValues}))',
     'CHECK (status IN (${movementStatusConverter.sqlValues}))',
