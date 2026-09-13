@@ -10,14 +10,18 @@ import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/expenses/expenses_screen.dart';
 import '../../features/expenses/recurring_rule_form_screen.dart';
 import '../../features/forecast/forecast_screen.dart';
+import '../../features/goals/goal_form_screen.dart';
 import '../../features/goals/goals_screen.dart';
 import '../../features/income/income_screen.dart';
 import '../../features/movements/movement_detail_screen.dart';
 import '../../features/movements/movement_form_screen.dart';
 import '../../features/movements/new_movement_sheet.dart';
+import '../../features/projects/client_form_screen.dart';
+import '../../features/projects/project_detail_screen.dart';
 import '../../features/projects/projects_screen.dart';
 import '../../features/reports/reports_screen.dart';
 import '../../features/salaries/salaries_screen.dart';
+import '../../features/salaries/salary_source_form_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
 /// Rutas de la aplicacion.
@@ -107,6 +111,57 @@ GoRouter buildRouter() {
       GoRoute(
         path: '/salarios',
         builder: (context, state) => const SalariesScreen(),
+      ),
+      GoRoute(
+        path: '/salarios/fuentes/nueva',
+        builder: (context, state) => const SalarySourceFormScreen(),
+      ),
+      GoRoute(
+        path: '/salarios/fuentes/:id/editar',
+        builder: (context, state) => SalarySourceFormScreen(
+          sourceId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
+      GoRoute(
+        path: '/proyectos/clientes/nuevo',
+        builder: (context, state) => const ClientFormScreen(),
+      ),
+      GoRoute(
+        path: '/proyectos/clientes/:id',
+        builder: (context, state) => ClientDetailScreen(
+          clientId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
+      GoRoute(
+        path: '/proyectos/clientes/:id/editar',
+        builder: (context, state) =>
+            ClientFormScreen(clientId: int.parse(state.pathParameters['id']!)),
+      ),
+      GoRoute(
+        path: '/proyectos/clientes/:id/proyectos/nuevo',
+        builder: (context, state) =>
+            ProjectFormScreen(clientId: int.parse(state.pathParameters['id']!)),
+      ),
+      GoRoute(
+        path: '/proyectos/detalle/:id',
+        builder: (context, state) => ProjectDetailScreen(
+          projectId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
+      GoRoute(
+        path: '/proyectos/detalle/:id/editar',
+        builder: (context, state) => ProjectFormScreen(
+          projectId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
+      GoRoute(
+        path: '/objetivos/nuevo',
+        builder: (context, state) => const GoalFormScreen(),
+      ),
+      GoRoute(
+        path: '/objetivos/:id/editar',
+        builder: (context, state) =>
+            GoalFormScreen(goalId: int.parse(state.pathParameters['id']!)),
       ),
       GoRoute(
         path: '/calendario',

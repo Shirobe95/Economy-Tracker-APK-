@@ -46,9 +46,25 @@ void appTest(
 }
 
 /// Pulsa por texto y espera a que la interfaz se estabilice.
+///
+/// Se desplaza primero si el objetivo esta fuera de la vista: la ventana de
+/// test es pequena y un formulario largo deja el boton de guardar abajo,
+/// donde un tap a ciegas no acierta.
 Future<void> tapText(WidgetTester tester, String text) async {
-  await tester.tap(find.text(text).last);
+  final finder = find.text(text).last;
+  await ensureTappable(tester, finder);
+  await tester.tap(finder);
   await tester.pumpAndSettle();
+}
+
+/// Lleva el objetivo a la vista cuando esta dentro de un scroll.
+Future<void> ensureTappable(WidgetTester tester, Finder finder) async {
+  try {
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+  } on StateError {
+    // No esta dentro de un scroll: ya se puede pulsar donde esta.
+  }
 }
 
 /// Pulsa un widget por su etiqueta de accesibilidad.
@@ -58,15 +74,22 @@ Future<void> tapLabel(WidgetTester tester, String label) async {
 }
 
 /// Escribe en el campo cuya etiqueta coincide.
+///
+/// Busca por la etiqueta declarada en la decoracion, no por el texto
+/// pintado: el rotulo flotante se mueve y se duplica segun el foco.
+Finder fieldWithLabel(String label) => find.byWidgetPredicate(
+  (widget) => widget is TextField && widget.decoration?.labelText == label,
+  description: 'campo "$label"',
+);
+
 Future<void> enterInField(
   WidgetTester tester,
   String label,
   String value,
 ) async {
-  final field = find.ancestor(
-    of: find.text(label),
-    matching: find.byType(TextField),
-  );
+  final field = fieldWithLabel(label);
+  expect(field, findsWidgets, reason: 'no existe el campo "$label"');
+  await ensureTappable(tester, field.first);
   await tester.enterText(field.first, value);
   await tester.pumpAndSettle();
 }
