@@ -26,25 +26,32 @@ abstract final class AppTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: colorScheme,
+      // Declarada explicitamente en vez de depender de la fuente por defecto
+      // del entorno: es la del sistema en Android, y hace que los renders de
+      // revision salgan con la misma tipografia que el dispositivo.
+      fontFamily: 'Roboto',
       scaffoldBackgroundColor: AppTokens.background,
       canvasColor: AppTokens.background,
       splashFactory: InkSparkle.splashFactory,
     );
 
+    final textTheme = _textTheme(base.textTheme);
+
     return base.copyWith(
-      textTheme: _textTheme(base.textTheme),
-      appBarTheme: const AppBarTheme(
+      textTheme: textTheme,
+      appBarTheme: AppBarTheme(
         backgroundColor: AppTokens.background,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: TextStyle(
-          color: AppTokens.textPrimary,
+        // Derivado del textTheme para que arrastre la familia tipografica;
+        // un TextStyle suelto aqui no la hereda.
+        titleTextStyle: textTheme.titleLarge?.copyWith(
           fontSize: 22,
-          fontWeight: FontWeight.w600,
+          color: AppTokens.textPrimary,
         ),
-        iconTheme: IconThemeData(color: AppTokens.textSecondary),
-        actionsIconTheme: IconThemeData(color: AppTokens.accentBright),
+        iconTheme: const IconThemeData(color: AppTokens.textSecondary),
+        actionsIconTheme: const IconThemeData(color: AppTokens.accentBright),
       ),
       cardTheme: CardThemeData(
         color: AppTokens.surface,
@@ -85,11 +92,27 @@ abstract final class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(foregroundColor: AppTokens.accentBright),
       ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: AppTokens.accent,
+        foregroundColor: Colors.white,
+        // Sin sombra dura: el sistema visual separa por color y borde, no
+        // por elevacion.
+        elevation: 0,
+        focusElevation: 0,
+        hoverElevation: 0,
+        highlightElevation: 0,
+        extendedTextStyle: textTheme.titleMedium?.copyWith(color: Colors.white),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+        ),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppTokens.surfaceElevated,
-        labelStyle: const TextStyle(color: AppTokens.textSecondary),
-        hintStyle: const TextStyle(color: AppTokens.textMuted),
+        labelStyle: textTheme.bodyMedium?.copyWith(
+          color: AppTokens.textSecondary,
+        ),
+        hintStyle: textTheme.bodyMedium?.copyWith(color: AppTokens.textMuted),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppTokens.space4,
           vertical: AppTokens.space3,
@@ -104,8 +127,15 @@ abstract final class AppTheme {
         backgroundColor: AppTokens.surfaceSubtle,
         selectedColor: AppTokens.accent,
         side: const BorderSide(color: AppTokens.border),
-        labelStyle: const TextStyle(color: AppTokens.textSecondary),
-        secondaryLabelStyle: const TextStyle(color: AppTokens.onAccent),
+        // Derivados del textTheme: un TextStyle suelto no arrastra la
+        // familia tipografica y el chip acaba sin fuente.
+        labelStyle: textTheme.bodyMedium?.copyWith(
+          color: AppTokens.textSecondary,
+        ),
+        secondaryLabelStyle: textTheme.bodyMedium?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
         shape: const StadiumBorder(),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
@@ -123,9 +153,11 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.circular(AppTokens.radiusCard),
         ),
       ),
-      snackBarTheme: const SnackBarThemeData(
+      snackBarTheme: SnackBarThemeData(
         backgroundColor: AppTokens.surfaceElevated,
-        contentTextStyle: TextStyle(color: AppTokens.textPrimary),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: AppTokens.textPrimary,
+        ),
         behavior: SnackBarBehavior.floating,
       ),
       navigationBarTheme: NavigationBarThemeData(
@@ -135,7 +167,7 @@ abstract final class AppTheme {
         height: 68,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
-          return TextStyle(
+          return textTheme.bodySmall!.copyWith(
             fontSize: 12,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
             color: selected ? AppTokens.accentBright : AppTokens.textMuted,
