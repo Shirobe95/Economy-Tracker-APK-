@@ -139,3 +139,14 @@ class RecurrenceSchedule {
     return dates;
   }
 }
+
+extension RecurrenceScheduleActivation on RecurrenceSchedule {
+  /// Copia el calendario cambiando solo si esta activo.
+  RecurrenceSchedule copyWithActive(bool active) => RecurrenceSchedule(
+    anchor: anchor,
+    frequency: frequency,
+    intervalCount: intervalCount,
+    endDate: endDate,
+    isActive: active,
+  );
+}
