@@ -78,6 +78,15 @@ Estas no son preferencias de estilo: cada una evita un error con dinero real.
 - **Las reglas recurrentes no materializan movimientos.** Consultar sus próximas
   fechas es una consulta, no un efecto: no escribe y no puede duplicar un gasto.
 
+## Copia de seguridad
+
+Tus datos viven solo en el teléfono. **Ajustes → Copia de seguridad** exporta
+un JSON con todo y permite restaurarlo. Hazlo antes de cambiar de móvil,
+antes de desinstalar y antes de cambiar la clave de firma: cualquiera de las
+tres cosas se lleva la base de datos por delante.
+
+El archivo no está cifrado. Guárdalo donde guardarías un extracto bancario.
+
 ## Documentación
 
 `docs/vault/` contiene la documentación canónica: visión, modelo financiero,

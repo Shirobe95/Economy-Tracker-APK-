@@ -6,7 +6,7 @@ status: active
 mode: diario
 owner: compartido
 current_cut: ECON-100 (reconstruccion)
-next_action: Aplicacion reconstruida entera en el repositorio con analyze, 125 tests y APK release en verde. Pendiente revision visual en Android fisico y validar [[DEC-007 · Tokens visuales derivados de los mockups]]. Ver [[CLAUDE · Reconstrucción completa en repositorio]].
+next_action: Roadmap completo (B a K) con analyze limpio, 168 tests y APK release en verde. Pendiente revision en Android fisico: estilo, y lo que depende de plugins nativos (compartir copia, elegir archivo, PIN). Ver [[CLAUDE · Reconstrucción completa en repositorio]].
 created: 2026-09-05
 updated: 2026-09-13
 ---
@@ -59,10 +59,15 @@ como base, pero **toda la documentación de este Vault sí manda**: decisiones
 DEC-001 a DEC-006, modelo financiero, esquema de datos, política de
 recurrencias y mockups congelados se han respetado.
 
-Estado: cortes B a I implementados; J (informes) y K (backup, bloqueo y
-firma) no. `flutter analyze` limpio, 125 tests correctos y APK release
-compilando en GitHub Actions — todo ejecutado, no afirmado. Falta la revisión
-visual en un Android físico, que ninguna captura de test sustituye.
+Estado: **cortes B a K implementados**, es decir el roadmap completo.
+`flutter analyze` limpio, 168 tests correctos y APK release compilando en
+GitHub Actions — todo ejecutado, no afirmado. Falta la revisión visual en un
+Android físico, que ninguna captura de test sustituye, y probar en dispositivo
+lo que depende de plugins nativos: compartir el archivo de copia, elegirlo
+para restaurar y el bloqueo por PIN.
+
+Los tokens visuales son ya los de [[MOD · Sistema visual oscuro grafito-cian (Flutter)]],
+que Andy aportó el 2026-09-13; ver [[DEC-007 · Origen de los tokens visuales]].
 
 Tres desviaciones deliberadas respecto a esta documentación, explicadas en
 [[CLAUDE · Reconstrucción completa en repositorio]]: esquema v1 sin migración
@@ -80,8 +85,8 @@ repositorio de movimientos único en vez de uno por corte.
 - [[ECON-000G · Motor de previsión]] — planned
 - [[ECON-000H · Objetivos de ahorro]] — planned
 - [[ECON-000I · Calendario financiero]] — planned
-- [[ECON-000J · Informes y análisis]] — planned
-- [[ECON-000K · Seguridad backup y release Android]] — planned
+- [[ECON-000J · Informes y análisis]] — completed
+- [[ECON-000K · Seguridad backup y release Android]] — completed (sin huella ni cifrado en reposo)
 
 ## Enlaces clave
 
