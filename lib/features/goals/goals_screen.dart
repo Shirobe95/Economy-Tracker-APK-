@@ -9,6 +9,9 @@ import '../../core/widgets/finance_card.dart';
 import '../../core/widgets/form_fields.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/section_header.dart';
+import '../../core/utils/dates.dart';
+import '../../data/movement_repository.dart';
+import '../../data/report_engine.dart';
 import '../../data/goal_repository.dart';
 
 /// Objetivos de ahorro (UI-12).
@@ -88,7 +91,12 @@ class _GoalCard extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const RoundIcon(Icons.savings_outlined, color: AppTokens.accent),
+              RoundIcon(
+                goal.isMonthly
+                    ? Icons.event_repeat_outlined
+                    : Icons.savings_outlined,
+                color: AppTokens.accent,
+              ),
               const SizedBox(width: AppTokens.space3),
               Expanded(
                 child: Column(
@@ -102,7 +110,7 @@ class _GoalCard extends ConsumerWidget {
                     Row(
                       children: [
                         Text(
-                          'Objetivo ',
+                          goal.isMonthly ? 'Cada mes ' : 'Objetivo ',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         MoneyText(
@@ -141,7 +149,7 @@ class _GoalCard extends ConsumerWidget {
                 ),
                 const SizedBox(width: AppTokens.space2),
                 Text(
-                  'ahorrado',
+                  goal.isMonthly ? 'este mes' : 'ahorrado',
                   style: Theme.of(context).textTheme.bodyMedium
                       ?.copyWith(color: AppTokens.textSecondary),
                 ),
@@ -153,54 +161,54 @@ class _GoalCard extends ConsumerWidget {
               child: LinearProgressIndicator(value: ratio, minHeight: 8),
             ),
             const SizedBox(height: AppTokens.space3),
-            Row(
-              children: [
-                if (goal.goal.monthlyContribution != null) ...[
+            if (goal.isMonthly)
+              _MonthlyFooter(goal: goal)
+            else
+              Row(
+                children: [
+                  if (goal.goal.monthlyContribution != null) ...[
+                    Expanded(
+                      child: _Detail(
+                        icon: Icons.savings_outlined,
+                        label: 'Aporte mensual',
+                        value: goal.goal.monthlyContribution!,
+                        currency: goal.goal.currency,
+                      ),
+                    ),
+                    Container(width: 1, height: 36, color: AppTokens.border),
+                  ],
                   Expanded(
-                    child: _Detail(
-                      icon: Icons.savings_outlined,
-                      label: 'Aporte mensual',
-                      value: goal.goal.monthlyContribution!,
-                      currency: goal.goal.currency,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: AppTokens.space3),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            months == null
+                                ? 'Fecha estimada'
+                                : months == 0
+                                ? 'Objetivo alcanzado'
+                                : 'Te faltan',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          Text(
+                            months == null
+                                ? 'Define un aporte mensual'
+                                : months == 0
+                                ? '¡Enhorabuena!'
+                                : '$months ${months == 1 ? "mes" : "meses"}',
+                            style: TextStyle(
+                              color: months == null
+                                  ? AppTokens.textMuted
+                                  : AppTokens.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  Container(width: 1, height: 36, color: AppTokens.border),
                 ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: AppTokens.space3),
-                        child: Text(
-                          months == null
-                              ? 'Fecha estimada'
-                              : months == 0
-                              ? 'Objetivo alcanzado'
-                              : 'Te faltan',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: AppTokens.space3),
-                        child: Text(
-                          months == null
-                              ? 'Define un aporte mensual'
-                              : months == 0
-                              ? '¡Enhorabuena!'
-                              : '$months ${months == 1 ? "mes" : "meses"}',
-                          style: TextStyle(
-                            color: months == null
-                                ? AppTokens.textMuted
-                                : AppTokens.textPrimary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
           ],
         ],
       ),
@@ -246,14 +254,21 @@ class _DeclareSavings extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Aun no has declarado cuanto llevas ahorrado para este objetivo.',
-          style: TextStyle(color: AppTokens.textSecondary),
+        Text(
+          goal.isMonthly
+              ? 'Aun no has dicho cuanto has apartado este mes.'
+              : 'Aun no has declarado cuanto llevas ahorrado para este '
+                    'objetivo.',
+          style: const TextStyle(color: AppTokens.textSecondary),
         ),
         const SizedBox(height: AppTokens.space3),
         OutlinedButton(
           onPressed: () => _declare(context, ref),
-          child: const Text('Declarar ahorro actual'),
+          child: Text(
+            goal.isMonthly
+                ? 'Declarar lo apartado este mes'
+                : 'Declarar ahorro actual',
+          ),
         ),
       ],
     );
@@ -296,5 +311,55 @@ class _DeclareSavings extends ConsumerWidget {
     await ref
         .read(goalRepositoryProvider)
         .declareCurrentAmount(goal.goal.id, amount);
+  }
+}
+
+/// Pie de un objetivo mensual.
+///
+/// Enseña lo que ha sobrado este mes junto a lo apartado, pero sin sumarlo:
+/// que sobre dinero no significa que se haya ahorrado (DEC-003). Es una
+/// referencia para decidir cuanto apartar, no el dato del objetivo.
+class _MonthlyFooter extends ConsumerWidget {
+  const _MonthlyFooter({required this.goal});
+
+  final GoalProgress goal;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final movements = ref.watch(allMovementsProvider).value;
+    if (movements == null) return const SizedBox.shrink();
+
+    final report = ReportEngine.build(
+      movements: movements,
+      categories: const [],
+      reference: Dates.today(),
+      range: ReportRange.month,
+    );
+    if (!report.hasData) return const SizedBox.shrink();
+
+    final leftover = report.net;
+
+    return Row(
+      children: [
+        Icon(
+          leftover >= 0
+              ? Icons.trending_up_rounded
+              : Icons.trending_down_rounded,
+          size: 16,
+          color: leftover >= 0 ? AppTokens.positive : AppTokens.negative,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          'Este mes te ha sobrado ',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        MoneyText(
+          leftover,
+          compact: true,
+          signed: true,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
   }
 }

@@ -2562,6 +2562,16 @@ class $SavingsGoalsTable extends SavingsGoals
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  @override
+  late final GeneratedColumnWithTypeConverter<SavingsGoalKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('amount'),
+      ).withConverter<SavingsGoalKind>($SavingsGoalsTable.$converterkind);
   static const VerificationMeta _targetAmountMeta = const VerificationMeta(
     'targetAmount',
   );
@@ -2639,6 +2649,7 @@ class $SavingsGoalsTable extends SavingsGoals
     createdAt,
     updatedAt,
     name,
+    kind,
     targetAmount,
     currentAmount,
     monthlyContribution,
@@ -2749,6 +2760,12 @@ class $SavingsGoalsTable extends SavingsGoals
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      kind: $SavingsGoalsTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
       targetAmount: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}target_amount'],
@@ -2783,6 +2800,8 @@ class $SavingsGoalsTable extends SavingsGoals
     return $SavingsGoalsTable(attachedDatabase, alias);
   }
 
+  static TypeConverter<SavingsGoalKind, String> $converterkind =
+      savingsGoalKindConverter;
   static TypeConverter<DateTime, String> $convertertargetDate =
       civilDateConverter;
   static TypeConverter<DateTime?, String?> $convertertargetDaten =
@@ -2794,6 +2813,12 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String name;
+
+  /// Que clase de objetivo es.
+  ///
+  /// En uno por importe, [targetAmount] es el total al que se quiere llegar.
+  /// En uno mensual, es lo que se quiere apartar cada mes.
+  final SavingsGoalKind kind;
   final int targetAmount;
   final int? currentAmount;
   final int? monthlyContribution;
@@ -2805,6 +2830,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
     required this.createdAt,
     required this.updatedAt,
     required this.name,
+    required this.kind,
     required this.targetAmount,
     this.currentAmount,
     this.monthlyContribution,
@@ -2819,6 +2845,11 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['name'] = Variable<String>(name);
+    {
+      map['kind'] = Variable<String>(
+        $SavingsGoalsTable.$converterkind.toSql(kind),
+      );
+    }
     map['target_amount'] = Variable<int>(targetAmount);
     if (!nullToAbsent || currentAmount != null) {
       map['current_amount'] = Variable<int>(currentAmount);
@@ -2842,6 +2873,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       name: Value(name),
+      kind: Value(kind),
       targetAmount: Value(targetAmount),
       currentAmount: currentAmount == null && nullToAbsent
           ? const Value.absent()
@@ -2867,6 +2899,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       name: serializer.fromJson<String>(json['name']),
+      kind: serializer.fromJson<SavingsGoalKind>(json['kind']),
       targetAmount: serializer.fromJson<int>(json['targetAmount']),
       currentAmount: serializer.fromJson<int?>(json['currentAmount']),
       monthlyContribution: serializer.fromJson<int?>(
@@ -2885,6 +2918,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'name': serializer.toJson<String>(name),
+      'kind': serializer.toJson<SavingsGoalKind>(kind),
       'targetAmount': serializer.toJson<int>(targetAmount),
       'currentAmount': serializer.toJson<int?>(currentAmount),
       'monthlyContribution': serializer.toJson<int?>(monthlyContribution),
@@ -2899,6 +2933,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? name,
+    SavingsGoalKind? kind,
     int? targetAmount,
     Value<int?> currentAmount = const Value.absent(),
     Value<int?> monthlyContribution = const Value.absent(),
@@ -2910,6 +2945,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     name: name ?? this.name,
+    kind: kind ?? this.kind,
     targetAmount: targetAmount ?? this.targetAmount,
     currentAmount: currentAmount.present
         ? currentAmount.value
@@ -2927,6 +2963,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       name: data.name.present ? data.name.value : this.name,
+      kind: data.kind.present ? data.kind.value : this.kind,
       targetAmount: data.targetAmount.present
           ? data.targetAmount.value
           : this.targetAmount,
@@ -2953,6 +2990,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('name: $name, ')
+          ..write('kind: $kind, ')
           ..write('targetAmount: $targetAmount, ')
           ..write('currentAmount: $currentAmount, ')
           ..write('monthlyContribution: $monthlyContribution, ')
@@ -2969,6 +3007,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
     createdAt,
     updatedAt,
     name,
+    kind,
     targetAmount,
     currentAmount,
     monthlyContribution,
@@ -2984,6 +3023,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.name == this.name &&
+          other.kind == this.kind &&
           other.targetAmount == this.targetAmount &&
           other.currentAmount == this.currentAmount &&
           other.monthlyContribution == this.monthlyContribution &&
@@ -2997,6 +3037,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<String> name;
+  final Value<SavingsGoalKind> kind;
   final Value<int> targetAmount;
   final Value<int?> currentAmount;
   final Value<int?> monthlyContribution;
@@ -3008,6 +3049,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.name = const Value.absent(),
+    this.kind = const Value.absent(),
     this.targetAmount = const Value.absent(),
     this.currentAmount = const Value.absent(),
     this.monthlyContribution = const Value.absent(),
@@ -3020,6 +3062,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     required String name,
+    this.kind = const Value.absent(),
     required int targetAmount,
     this.currentAmount = const Value.absent(),
     this.monthlyContribution = const Value.absent(),
@@ -3034,6 +3077,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<String>? name,
+    Expression<String>? kind,
     Expression<int>? targetAmount,
     Expression<int>? currentAmount,
     Expression<int>? monthlyContribution,
@@ -3046,6 +3090,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (name != null) 'name': name,
+      if (kind != null) 'kind': kind,
       if (targetAmount != null) 'target_amount': targetAmount,
       if (currentAmount != null) 'current_amount': currentAmount,
       if (monthlyContribution != null)
@@ -3061,6 +3106,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<String>? name,
+    Value<SavingsGoalKind>? kind,
     Value<int>? targetAmount,
     Value<int?>? currentAmount,
     Value<int?>? monthlyContribution,
@@ -3073,6 +3119,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       name: name ?? this.name,
+      kind: kind ?? this.kind,
       targetAmount: targetAmount ?? this.targetAmount,
       currentAmount: currentAmount ?? this.currentAmount,
       monthlyContribution: monthlyContribution ?? this.monthlyContribution,
@@ -3096,6 +3143,11 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $SavingsGoalsTable.$converterkind.toSql(kind.value),
+      );
     }
     if (targetAmount.present) {
       map['target_amount'] = Variable<int>(targetAmount.value);
@@ -3127,6 +3179,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('name: $name, ')
+          ..write('kind: $kind, ')
           ..write('targetAmount: $targetAmount, ')
           ..write('currentAmount: $currentAmount, ')
           ..write('monthlyContribution: $monthlyContribution, ')
@@ -5408,6 +5461,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_tx_rule',
     'CREATE INDEX idx_tx_rule ON transactions (recurring_rule_id)',
   );
+  late final Index idxTxRuleOccurrence = Index(
+    'idx_tx_rule_occurrence',
+    'CREATE UNIQUE INDEX idx_tx_rule_occurrence ON transactions (recurring_rule_id, expected_date)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5436,5 +5493,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     idxTxSalarySource,
     idxTxSavingsGoal,
     idxTxRule,
+    idxTxRuleOccurrence,
   ];
 }

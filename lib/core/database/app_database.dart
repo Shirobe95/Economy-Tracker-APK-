@@ -28,11 +28,15 @@ class AppDatabase extends _$AppDatabase {
   /// v1: esquema financiero con las ocho tablas.
   /// v2: `salary_sources.payment_day`, para poder prever cuando entra una
   ///     nomina y no solo cuanto.
+  /// v3: `savings_goals.kind`, para distinguir un objetivo por importe de uno
+  ///     mensual, y unicidad de (regla, fecha prevista) en movimientos, que
+  ///     es lo que permite marcar una ocurrencia recurrente como pagada sin
+  ///     arriesgarse a duplicarla.
   ///
   /// Al cambiarlo: subir version, anadir un paso explicito en [migration] y
   /// probarlo con datos previos. Nunca sustituirlo por borrar el archivo.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -50,7 +54,7 @@ class AppDatabase extends _$AppDatabase {
         );
       }
 
-      if (from == 1 && to == 2) {
+      if (from <= 1) {
         // Se recrea la tabla en vez de usar ALTER TABLE ADD COLUMN: SQLite no
         // sabe anadir un CHECK a una tabla existente, y con ADD COLUMN una
         // base migrada acabaria con menos restricciones que una recien
@@ -67,13 +71,37 @@ class AppDatabase extends _$AppDatabase {
           // ignore: experimental_member_use
           TableMigration(salarySources, newColumns: [salarySources.paymentDay]),
         );
-        return;
       }
 
-      throw UnsupportedError(
-        'Migracion $from -> $to no implementada. '
-        'Anadir el paso explicito antes de subir schemaVersion.',
-      );
+      if (from <= 2) {
+        // Los objetivos ganan tipo: lo que ya existia es de importe, que es
+        // lo unico que se podia crear hasta ahora.
+        await m.alterTable(
+          // ignore: experimental_member_use
+          TableMigration(savingsGoals, newColumns: [savingsGoals.kind]),
+        );
+
+        // Antes de exigir unicidad hay que quitar los duplicados que
+        // pudieran existir, o el indice no se deja crear. Se conserva el
+        // movimiento mas antiguo de cada par.
+        await customStatement('''
+          DELETE FROM transactions
+          WHERE recurring_rule_id IS NOT NULL
+            AND id NOT IN (
+              SELECT MIN(id) FROM transactions
+              WHERE recurring_rule_id IS NOT NULL
+              GROUP BY recurring_rule_id, expected_date
+            )
+        ''');
+        await m.createIndex(idxTxRuleOccurrence);
+      }
+
+      if (to > schemaVersion || from > schemaVersion) {
+        throw UnsupportedError(
+          'Migracion $from -> $to no implementada. '
+          'Anadir el paso explicito antes de subir schemaVersion.',
+        );
+      }
     },
     beforeOpen: (details) async {
       // Las claves foraneas del esquema solo se aplican si SQLite las tiene

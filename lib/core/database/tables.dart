@@ -150,6 +150,14 @@ class SalarySources extends Table with _Timestamps {
 class SavingsGoals extends Table with _Timestamps {
   TextColumn get name => text().withLength(min: 1, max: 80)();
 
+  /// Que clase de objetivo es.
+  ///
+  /// En uno por importe, [targetAmount] es el total al que se quiere llegar.
+  /// En uno mensual, es lo que se quiere apartar cada mes.
+  TextColumn get kind => text()
+      .map(savingsGoalKindConverter)
+      .withDefault(const Constant('amount'))();
+
   IntColumn get targetAmount => integer()();
 
   IntColumn get currentAmount => integer().nullable()();
@@ -165,6 +173,7 @@ class SavingsGoals extends Table with _Timestamps {
   @override
   List<String> get customConstraints => [
     'CHECK ($_currencyCheck)',
+    'CHECK (kind IN (${savingsGoalKindConverter.sqlValues}))',
     'CHECK (target_amount > 0)',
     'CHECK (current_amount IS NULL OR current_amount >= 0)',
     'CHECK (monthly_contribution IS NULL OR monthly_contribution >= 0)',
@@ -247,6 +256,14 @@ class RecurringRules extends Table with _Timestamps {
 @TableIndex(name: 'idx_tx_salary_source', columns: {#salarySourceId})
 @TableIndex(name: 'idx_tx_savings_goal', columns: {#savingsGoalId})
 @TableIndex(name: 'idx_tx_rule', columns: {#recurringRuleId})
+// Una regla no puede tener dos movimientos para la misma fecha prevista.
+// Es lo que hace que marcar una ocurrencia como pagada sea repetible sin
+// duplicar el gasto, y lo que el Vault exigia antes de materializar nada.
+@TableIndex(
+  name: 'idx_tx_rule_occurrence',
+  columns: {#recurringRuleId, #expectedDate},
+  unique: true,
+)
 class Transactions extends Table with _Timestamps {
   TextColumn get type => text().map(movementTypeConverter)();
 

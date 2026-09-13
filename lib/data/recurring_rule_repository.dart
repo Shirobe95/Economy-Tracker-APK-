@@ -151,6 +151,71 @@ class RecurringRuleRepository {
     });
   }
 
+  /// Registra una ocurrencia de la regla como ya ocurrida.
+  ///
+  /// Es el atajo para cuando un recibo domiciliado el dia 25 se cobra el 20:
+  /// en vez de anotar un gasto a mano y que la prevision lo cuente dos veces,
+  /// se marca esa ocurrencia concreta y queda enlazada a su regla.
+  ///
+  /// Repetir la operacion sobre la misma ocurrencia no duplica nada: devuelve
+  /// el movimiento que ya existe. La unicidad de (regla, fecha prevista) esta
+  /// tambien en el esquema, no solo en esta comprobacion.
+  ///
+  /// [amount] permite corregir el importe cuando el recibo no vino por lo de
+  /// siempre, sin tocar la regla.
+  Future<int> settleOccurrence({
+    required RecurringRule rule,
+    required DateTime occurrence,
+    required DateTime actualDate,
+    int? amount,
+  }) async {
+    final expectedDate = Dates.day(occurrence);
+
+    return _db.transaction(() async {
+      final existing =
+          await (_db.select(_db.transactions)
+                ..where((t) => t.recurringRuleId.equals(rule.id))
+                ..where((t) => t.expectedDate.equalsValue(expectedDate)))
+              .getSingleOrNull();
+
+      if (existing != null) {
+        if (existing.status.isRealised) return existing.id;
+        // Estaba anotada pero sin pagar: se completa en vez de crear otra.
+        await MovementRepository(_db).markRealised(existing.id, actualDate);
+        return existing.id;
+      }
+
+      return MovementRepository(_db).save(
+        MovementDraft(
+          type: rule.type,
+          status: MovementRepository.realisedStatusFor(rule.type),
+          concept: rule.concept,
+          amount: amount ?? rule.amount,
+          accountId: rule.accountId,
+          destinationAccountId: rule.destinationAccountId,
+          categoryId: rule.categoryId,
+          recurringRuleId: rule.id,
+          expectedDate: expectedDate,
+          actualDate: Dates.day(actualDate),
+          currency: rule.currency,
+        ),
+      );
+    });
+  }
+
+  /// Movimientos ya registrados de una regla, por fecha prevista.
+  ///
+  /// La interfaz lo usa para no ofrecer pagar algo que ya esta pagado.
+  Stream<Map<String, Transaction>> watchSettled(int ruleId) {
+    final query = _db.select(_db.transactions)
+      ..where((t) => t.recurringRuleId.equals(ruleId))
+      ..where((t) => t.isDeleted.equals(false));
+
+    return query.watch().map(
+      (rows) => {for (final row in rows) isoDay(row.expectedDate): row},
+    );
+  }
+
   Future<void> deleteRule(int id) {
     return (_db.delete(_db.recurringRules)..where((r) => r.id.equals(id))).go();
   }

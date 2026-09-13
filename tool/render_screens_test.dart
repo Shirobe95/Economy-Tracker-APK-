@@ -221,6 +221,17 @@ void main() {
             monthlyContribution: const Value(15000),
           ),
         );
+    await db
+        .into(db.savingsGoals)
+        .insert(
+          SavingsGoalsCompanion.insert(
+            name: 'Ahorro del mes',
+            kind: const Value(SavingsGoalKind.monthly),
+            targetAmount: 20000,
+            currency: 'EUR',
+            currentAmount: const Value(12000),
+          ),
+        );
 
     return db;
   }

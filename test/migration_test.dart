@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:economy_tracker/core/database/app_database.dart';
+import 'package:economy_tracker/core/database/enums.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Migrar no puede costarle los datos a nadie.
@@ -10,6 +11,26 @@ import 'package:flutter_test/flutter_test.dart';
 /// El test levanta una base con el esquema v1 escrito a mano, mete datos, y
 /// la abre con la aplicacion actual para que corra la migracion de verdad.
 void main() {
+  /// Esquema v1 de `savings_goals`, antes de distinguir tipo de objetivo.
+  const savingsGoalsV1 = '''
+    CREATE TABLE "savings_goals" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "created_at" INTEGER NOT NULL DEFAULT (CAST(strftime('%s', CURRENT_TIMESTAMP) AS INTEGER)),
+      "updated_at" INTEGER NOT NULL DEFAULT (CAST(strftime('%s', CURRENT_TIMESTAMP) AS INTEGER)),
+      "name" TEXT NOT NULL,
+      "target_amount" INTEGER NOT NULL,
+      "current_amount" INTEGER NULL,
+      "monthly_contribution" INTEGER NULL,
+      "currency" TEXT NOT NULL,
+      "target_date" TEXT NULL,
+      "is_archived" INTEGER NOT NULL DEFAULT 0 CHECK ("is_archived" IN (0, 1)),
+      CHECK (currency GLOB '[A-Z][A-Z][A-Z]'),
+      CHECK (target_amount > 0),
+      CHECK (current_amount IS NULL OR current_amount >= 0),
+      CHECK (monthly_contribution IS NULL OR monthly_contribution >= 0)
+    )
+  ''';
+
   /// Esquema v1 de `salary_sources`, tal como se instalo antes de anadir el
   /// dia de cobro.
   const salarySourcesV1 = '''
@@ -49,16 +70,23 @@ void main() {
       "INSERT INTO salary_sources (name, expected_amount, currency, frequency) "
       "VALUES ('Nomina', 170000, 'EUR', 'monthly')",
     );
+    await setup.customStatement('DROP INDEX IF EXISTS idx_tx_rule_occurrence');
+    await setup.customStatement('DROP TABLE savings_goals');
+    await setup.customStatement(savingsGoalsV1);
+    await setup.customStatement(
+      "INSERT INTO savings_goals (name, target_amount, current_amount, currency) "
+      "VALUES ('Fondo de emergencia', 600000, 325000, 'EUR')",
+    );
     await setup.customStatement('PRAGMA user_version = 1');
     await setup.close();
 
     return AppDatabase(DatabaseConnection(NativeDatabase(file)));
   }
 
-  test('la version de esquema es 2', () {
+  test('la version de esquema es 3', () {
     final db = AppDatabase(DatabaseConnection(NativeDatabase.memory()));
     addTearDown(db.close);
-    expect(db.schemaVersion, 2);
+    expect(db.schemaVersion, 3);
   });
 
   test('migrar de v1 conserva las nominas ya guardadas', () async {
@@ -96,6 +124,66 @@ void main() {
           .write(const SalarySourcesCompanion(paymentDay: Value(45))),
       throwsA(isA<Exception>()),
     );
+  });
+
+  test('migrar de v1 conserva los objetivos y les pone tipo', () async {
+    final db = await migratedFromV1();
+    addTearDown(db.close);
+
+    final goals = await db.select(db.savingsGoals).get();
+    expect(goals.single.name, 'Fondo de emergencia');
+    expect(goals.single.targetAmount, 600000);
+    expect(goals.single.currentAmount, 325000);
+    // Lo que ya existia es un objetivo por importe: nadie habia pedido otra
+    // cosa, asi que ese es el unico valor honesto.
+    expect(goals.single.kind, SavingsGoalKind.amount);
+  });
+
+  test('la base migrada impide duplicar una ocurrencia recurrente', () async {
+    final db = await migratedFromV1();
+    addTearDown(db.close);
+
+    final accountId = await db
+        .into(db.accounts)
+        .insert(
+          AccountsCompanion.insert(
+            name: 'Cuenta',
+            type: AccountType.bank,
+            currency: 'EUR',
+          ),
+        );
+    final ruleId = await db
+        .into(db.recurringRules)
+        .insert(
+          RecurringRulesCompanion.insert(
+            concept: 'Seguro',
+            type: MovementType.expense,
+            accountId: accountId,
+            amount: 5000,
+            currency: 'EUR',
+            frequency: RecurrenceFrequency.monthly,
+            startDate: DateTime.utc(2026, 9, 25),
+          ),
+        );
+
+    Future<int> insertOccurrence() => db
+        .into(db.transactions)
+        .insert(
+          TransactionsCompanion.insert(
+            type: MovementType.expense,
+            status: MovementStatus.previsto,
+            concept: 'Seguro',
+            amount: 5000,
+            currency: 'EUR',
+            accountId: accountId,
+            recurringRuleId: Value(ruleId),
+            expectedDate: DateTime.utc(2026, 9, 25),
+          ),
+        );
+
+    await insertOccurrence();
+    // El indice unico tiene que existir tambien en una base migrada.
+    await expectLater(insertOccurrence(), throwsA(isA<Exception>()));
   });
 
   test('una version futura falla en vez de abrir a medias', () async {

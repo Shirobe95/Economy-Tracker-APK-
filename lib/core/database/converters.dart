@@ -58,6 +58,11 @@ const billingTypeConverter = CodeConverter<BillingType>(
   _billingTypeCode,
   'BillingType',
 );
+const savingsGoalKindConverter = CodeConverter<SavingsGoalKind>(
+  SavingsGoalKind.values,
+  _savingsGoalKindCode,
+  'SavingsGoalKind',
+);
 
 String _movementTypeCode(MovementType v) => v.code;
 String _movementStatusCode(MovementStatus v) => v.code;
@@ -65,6 +70,7 @@ String _accountTypeCode(AccountType v) => v.code;
 String _categoryKindCode(CategoryKind v) => v.code;
 String _recurrenceFrequencyCode(RecurrenceFrequency v) => v.code;
 String _billingTypeCode(BillingType v) => v.code;
+String _savingsGoalKindCode(SavingsGoalKind v) => v.code;
 
 /// Fecha civil sin hora, guardada como texto `YYYY-MM-DD`.
 ///

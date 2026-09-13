@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/database/app_database.dart';
 import '../core/database/database_provider.dart';
+import '../core/database/enums.dart';
 import '../core/utils/dates.dart';
 import 'account_repository.dart';
 
@@ -14,6 +15,16 @@ class GoalProgress {
   const GoalProgress({required this.goal});
 
   final SavingsGoal goal;
+
+  /// Un objetivo mensual no tiene meta final: su exito se mide mes a mes.
+  bool get isMonthly => goal.kind.isMonthly;
+
+  /// Lo que hay que apartar cada mes.
+  ///
+  /// En un objetivo mensual es el propio objetivo; en uno por importe, la
+  /// aportacion declarada, si la hay.
+  int? get monthlyTarget =>
+      isMonthly ? goal.targetAmount : goal.monthlyContribution;
 
   /// Ahorro real declarado. `null` cuando no se ha declarado ninguno: no es
   /// lo mismo que cero.
@@ -27,7 +38,7 @@ class GoalProgress {
     return value > 1 ? 1 : value;
   }
 
-  /// Lo que falta para llegar al objetivo.
+  /// Lo que falta para llegar al objetivo, o para cumplir el mes.
   int? get remaining {
     final amount = current;
     if (amount == null) return null;
@@ -38,8 +49,10 @@ class GoalProgress {
   /// Meses que faltan al ritmo de la aportacion mensual declarada.
   ///
   /// Devuelve `null` si no hay aportacion o no hay ahorro declarado: una
-  /// fecha estimada sin esos datos seria inventada.
+  /// fecha estimada sin esos datos seria inventada. Un objetivo mensual no
+  /// tiene meta final, asi que tampoco tiene fecha de llegada.
   int? get monthsToTarget {
+    if (isMonthly) return null;
     final left = remaining;
     final monthly = goal.monthlyContribution;
     if (left == null || monthly == null || monthly <= 0) return null;
@@ -82,17 +95,24 @@ class GoalRepository {
     int? id,
     required String name,
     required int targetAmount,
+    SavingsGoalKind kind = SavingsGoalKind.amount,
     int? currentAmount,
     int? monthlyContribution,
     DateTime? targetDate,
     String currency = kDefaultCurrency,
   }) {
+    final monthly = kind.isMonthly;
     final companion = SavingsGoalsCompanion(
       name: Value(name.trim()),
+      kind: Value(kind),
       targetAmount: Value(targetAmount),
       currentAmount: Value(currentAmount),
-      monthlyContribution: Value(monthlyContribution),
-      targetDate: Value(targetDate == null ? null : Dates.day(targetDate)),
+      // Un objetivo mensual no lleva aportacion aparte: el objetivo ya es la
+      // aportacion. Ni fecha de llegada, porque no hay meta que alcanzar.
+      monthlyContribution: Value(monthly ? null : monthlyContribution),
+      targetDate: Value(
+        monthly || targetDate == null ? null : Dates.day(targetDate),
+      ),
       currency: Value(currency),
       updatedAt: Value(DateTime.now()),
     );

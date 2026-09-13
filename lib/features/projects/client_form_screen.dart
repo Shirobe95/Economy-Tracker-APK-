@@ -212,6 +212,14 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
         title: Text(
           widget.projectId == null ? 'Nuevo proyecto' : 'Editar proyecto',
         ),
+        actions: [
+          // Tambien arriba: con el teclado abierto, el boton del final del
+          // formulario queda fuera de la pantalla.
+          TextButton(
+            onPressed: _saving ? null : _save,
+            child: const Text('Guardar'),
+          ),
+        ],
       ),
       body: Form(
         key: _formKey,
@@ -227,13 +235,14 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                   : null,
             ),
             const SizedBox(height: AppTokens.space4),
-            OptionField<int>(
-              label: 'Cliente',
-              value: _clientId,
-              items: [
-                for (final client in clients.value ?? const <Client>[])
-                  DropdownMenuItem(value: client.id, child: Text(client.name)),
-              ],
+            _ClientField(
+              clients: clients,
+              selectedId: _clientId,
+              // Al crear desde la ficha de un cliente, el cliente ya esta
+              // decidido: se enseña, no se elige. Un desplegable que ademas
+              // aparece vacio mientras carga la lista solo consigue que
+              // parezca que falta rellenarlo.
+              locked: widget.clientId != null && widget.projectId == null,
               onChanged: (value) => setState(() => _clientId = value),
             ),
             const SizedBox(height: AppTokens.space4),
@@ -301,3 +310,77 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
 final projectFormProvider = StreamProvider.family<Project?, int>(
   (ref, id) => ref.watch(projectRepositoryProvider).watchProject(id),
 );
+
+/// Selector de cliente de un proyecto.
+///
+/// Distingue tres situaciones que el desplegable de siempre confundia: el
+/// cliente ya decidido, la lista todavia cargando, y no haber ninguno.
+class _ClientField extends StatelessWidget {
+  const _ClientField({
+    required this.clients,
+    required this.selectedId,
+    required this.locked,
+    required this.onChanged,
+  });
+
+  final AsyncValue<List<Client>> clients;
+  final int? selectedId;
+  final bool locked;
+  final ValueChanged<int?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = clients.value;
+
+    if (rows == null) {
+      return const InputDecorator(
+        decoration: InputDecoration(labelText: 'Cliente'),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: AppTokens.space3),
+            Text(
+              'Cargando clientes...',
+              style: TextStyle(color: AppTokens.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (locked) {
+      final name = rows
+          .where((c) => c.id == selectedId)
+          .map((c) => c.name)
+          .firstOrNull;
+      return InputDecorator(
+        decoration: const InputDecoration(labelText: 'Cliente'),
+        child: Text(name ?? 'Cliente seleccionado'),
+      );
+    }
+
+    if (rows.isEmpty) {
+      return const InputDecorator(
+        decoration: InputDecoration(labelText: 'Cliente'),
+        child: Text(
+          'Crea un cliente antes que el proyecto',
+          style: TextStyle(color: AppTokens.textMuted),
+        ),
+      );
+    }
+
+    return OptionField<int>(
+      label: 'Cliente',
+      value: rows.any((c) => c.id == selectedId) ? selectedId : null,
+      items: [
+        for (final client in rows)
+          DropdownMenuItem(value: client.id, child: Text(client.name)),
+      ],
+      onChanged: onChanged,
+    );
+  }
+}

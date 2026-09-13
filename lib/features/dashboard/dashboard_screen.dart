@@ -289,7 +289,9 @@ class _SavingsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeader('Objetivo de ahorro'),
+          SectionHeader(
+            goal.isMonthly ? 'Ahorro de este mes' : 'Objetivo de ahorro',
+          ),
           const SizedBox(height: AppTokens.space2),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -311,9 +313,12 @@ class _SavingsCard extends StatelessWidget {
           ),
           const SizedBox(height: AppTokens.space3),
           if (ratio == null)
-            const Text(
-              'Declara cuanto llevas ahorrado para ver el progreso.',
-              style: TextStyle(color: AppTokens.textSecondary),
+            Text(
+              goal.isMonthly
+                  ? 'Declara cuanto has apartado este mes para ver el '
+                        'progreso.'
+                  : 'Declara cuanto llevas ahorrado para ver el progreso.',
+              style: const TextStyle(color: AppTokens.textSecondary),
             )
           else ...[
             ClipRRect(
@@ -328,9 +333,9 @@ class _SavingsCard extends StatelessWidget {
                   compact: true,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
-                const Text(
-                  '  de  ',
-                  style: TextStyle(color: AppTokens.textSecondary),
+                Text(
+                  goal.isMonthly ? '  de  ' : '  de  ',
+                  style: const TextStyle(color: AppTokens.textSecondary),
                 ),
                 MoneyText(
                   goal.goal.targetAmount,

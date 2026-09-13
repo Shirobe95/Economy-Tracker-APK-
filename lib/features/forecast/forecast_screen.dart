@@ -75,8 +75,10 @@ class _ForecastScreenState extends ConsumerState<ForecastScreen> {
             result: result,
             months: _months,
             onMonthsChanged: (value) => setState(() => _months = value),
+            // Cuenta los dos tipos de objetivo: el mensual es el propio
+            // objetivo, y el de importe aporta lo que tenga declarado.
             monthlyTarget: goals.value
-                ?.map((g) => g.goal.monthlyContribution ?? 0)
+                ?.map((g) => g.monthlyTarget ?? 0)
                 .fold<int>(0, (a, b) => a + b),
           );
         },

@@ -97,3 +97,18 @@ enum BillingType {
 
   final String code;
 }
+
+/// Como se mide un objetivo de ahorro (`savings_goals.kind`).
+enum SavingsGoalKind {
+  /// Juntar una cantidad concreta: un fondo de emergencia, un portatil.
+  amount('amount'),
+
+  /// Apartar un importe todos los meses, sin un total al que llegar.
+  monthly('monthly');
+
+  const SavingsGoalKind(this.code);
+
+  final String code;
+
+  bool get isMonthly => this == SavingsGoalKind.monthly;
+}
