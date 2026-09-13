@@ -5,10 +5,10 @@ type: project
 status: active
 mode: diario
 owner: compartido
-current_cut: ECON-000E
-next_action: ECON-000E implementado sobre DEC-006; pendiente que se corra analyze/tests/build (sin SDK Flutter en esta sesión) y prueba real en dispositivo. Ver [[ECON-000E · Clientes proyectos y cobros]].
+current_cut: ECON-100 (reconstruccion)
+next_action: Aplicacion reconstruida entera en el repositorio con analyze, 125 tests y APK release en verde. Pendiente revision visual en Android fisico y validar [[DEC-007 · Tokens visuales derivados de los mockups]]. Ver [[CLAUDE · Reconstrucción completa en repositorio]].
 created: 2026-09-05
-updated: 2026-09-09
+updated: 2026-09-13
 ---
 
 # Economy Tracker · Inicio
@@ -45,7 +45,29 @@ conservan su evidencia histórica. Commit del corte C registrado en su handoff.
 
 ## Código fuente
 
-C:\Users\Andy\Documents\Work\Personal Proyects\Economy Tracker
+**Canónico desde 2026-09-13:** repositorio `Shirobe95/Economy-Tracker-APK-`,
+rama `claude/economy-tracker-apk-9a1e7k`. El APK se descarga de GitHub
+Actions, sin compilar nada en local.
+
+Histórico, ya no es la fuente: `C:\Users\Andy\Documents\Work\Personal Proyects\Economy Tracker`
+
+## Reconstrucción · 2026-09-13
+
+Andy decidió rehacer el proyecto desde cero en el repositorio para poder
+terminarlo. El repositorio estaba vacío; el código de Codex no se ha usado
+como base, pero **toda la documentación de este Vault sí manda**: decisiones
+DEC-001 a DEC-006, modelo financiero, esquema de datos, política de
+recurrencias y mockups congelados se han respetado.
+
+Estado: cortes B a I implementados; J (informes) y K (backup, bloqueo y
+firma) no. `flutter analyze` limpio, 125 tests correctos y APK release
+compilando en GitHub Actions — todo ejecutado, no afirmado. Falta la revisión
+visual en un Android físico, que ninguna captura de test sustituye.
+
+Tres desviaciones deliberadas respecto a esta documentación, explicadas en
+[[CLAUDE · Reconstrucción completa en repositorio]]: esquema v1 sin migración
+histórica, fechas financieras como texto ISO en vez de timestamp, y un
+repositorio de movimientos único en vez de uno por corte.
 
 ## Roadmap
 
