@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'app/app.dart';
-import 'core/theme/paliko_theme.dart';
+import 'app/economy_tracker_app.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setSystemUIOverlayStyle(PalikoTheme.systemOverlayStyle);
-  runApp(const EconomyTrackerApp());
+  runApp(const ProviderScope(child: EconomyTrackerApp()));
 }

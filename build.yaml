@@ -1,0 +1,11 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          # Los nombres Dart son camelCase; el esquema SQL usa snake_case,
+          # tal como documenta "Modelo de datos Drift v0.1".
+          case_from_dart_to_sql: snake_case
+          # No se genera la API de managers: las consultas se escriben
+          # explicitamente en los repositorios.
+          generate_manager: false
