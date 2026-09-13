@@ -131,6 +131,16 @@ class _SourceCard extends ConsumerWidget {
 
   final SalarySource source;
 
+  /// Lo que le falta a la fuente para poder proyectarse.
+  List<String> get _missingForForecast => [
+    if (source.expectedAmount == null || source.expectedAmount! <= 0)
+      'el importe',
+    if (source.frequency == null) 'la frecuencia',
+    if (source.paymentDay == null) 'el dia de cobro',
+  ];
+
+  bool get _entersForecast => _missingForForecast.isEmpty;
+
   String? get _frequencyLabel => switch (source.frequency) {
     RecurrenceFrequency.daily => 'Cada dia',
     RecurrenceFrequency.weekly => 'Cada semana',
@@ -157,10 +167,35 @@ class _SourceCard extends ConsumerWidget {
                 Text(
                   [
                     ?_frequencyLabel,
+                    if (source.paymentDay != null) 'dia ${source.paymentDay}',
                     if (!source.isActive) 'Inactiva',
                   ].join(' · '),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                if (source.isActive && !_entersForecast) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        size: 13,
+                        color: AppTokens.pending,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'No entra en la prevision: le falta '
+                          '${_missingForForecast.join(' y ')}.',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppTokens.pending,
+                                fontSize: 12,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

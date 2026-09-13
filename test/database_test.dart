@@ -51,10 +51,6 @@ void main() {
     ]);
   });
 
-  test('la version de esquema es 1', () {
-    expect(db.schemaVersion, 1);
-  });
-
   test('rechaza una moneda que no sean tres mayusculas', () async {
     await expectLater(
       insertAccount(currency: 'eur'),

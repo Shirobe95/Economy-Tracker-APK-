@@ -26,6 +26,7 @@ class _SalarySourceFormScreenState
   final _expected = TextEditingController();
 
   RecurrenceFrequency? _frequency = RecurrenceFrequency.monthly;
+  int? _paymentDay;
   bool _active = true;
   bool _saving = false;
   bool _loaded = false;
@@ -46,6 +47,7 @@ class _SalarySourceFormScreenState
       _expected.text = (source.expectedAmount! / 100).toStringAsFixed(2);
     }
     _frequency = source.frequency;
+    _paymentDay = source.paymentDay;
     _active = source.isActive;
   }
 
@@ -65,10 +67,16 @@ class _SalarySourceFormScreenState
             ? null
             : Money.tryParse(_expected.text),
         frequency: _frequency,
+        paymentDay: _paymentDay,
       );
       await repository.setSourceActive(id, _active);
       if (!mounted) return;
       Navigator.of(context).pop(true);
+    } on ArgumentError catch (error) {
+      setState(() {
+        _saving = false;
+        _error = '${error.message}';
+      });
     } catch (error) {
       setState(() {
         _saving = false;
@@ -147,6 +155,20 @@ class _SalarySourceFormScreenState
               ],
               onChanged: (value) => setState(() => _frequency = value),
             ),
+            const SizedBox(height: AppTokens.space4),
+            OptionField<int?>(
+              label: 'Dia de cobro',
+              value: _paymentDay,
+              hint: 'Sin definir',
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Sin definir')),
+                for (var day = 1; day <= 31; day++)
+                  DropdownMenuItem(value: day, child: Text('Dia $day')),
+              ],
+              onChanged: (value) => setState(() => _paymentDay = value),
+            ),
+            const SizedBox(height: AppTokens.space3),
+            const _ForecastNotice(),
             const SizedBox(height: AppTokens.space3),
             SwitchListTile(
               value: _active,
@@ -165,6 +187,46 @@ class _SalarySourceFormScreenState
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Explica cuando una fuente entra en la prevision.
+///
+/// Sin esto, un sueldo declarado puede no aparecer en la proyeccion y no hay
+/// forma de adivinar por que.
+class _ForecastNotice extends StatelessWidget {
+  const _ForecastNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppTokens.space3),
+      decoration: BoxDecoration(
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(AppTokens.radiusControl),
+        border: Border.all(color: AppTokens.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.show_chart_rounded,
+            size: 18,
+            color: AppTokens.accentBright,
+          ),
+          const SizedBox(width: AppTokens.space3),
+          Expanded(
+            child: Text(
+              'Con importe, frecuencia y dia de cobro, esta nomina entra en '
+              'la prevision. Si falta alguno de los tres no se proyecta: '
+              'antes que inventarnos cuanto o cuando cobras, preferimos que '
+              'lo eches en falta.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
       ),
     );
   }

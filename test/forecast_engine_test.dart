@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:economy_tracker/core/database/app_database.dart';
 import 'package:economy_tracker/core/database/enums.dart';
 import 'package:economy_tracker/data/forecast_engine.dart';
@@ -67,15 +68,36 @@ void main() {
     updatedAt: DateTime.utc(2026, 1, 1),
   );
 
+  SalarySource salarySource({
+    int id = 1,
+    String name = 'Nomina',
+    int? expectedAmount = 170000,
+    RecurrenceFrequency? frequency = RecurrenceFrequency.monthly,
+    int? paymentDay = 25,
+    bool isActive = true,
+  }) => SalarySource(
+    id: id,
+    name: name,
+    expectedAmount: expectedAmount,
+    currency: 'EUR',
+    frequency: frequency,
+    paymentDay: paymentDay,
+    isActive: isActive,
+    createdAt: DateTime.utc(2026, 1, 1),
+    updatedAt: DateTime.utc(2026, 1, 1),
+  );
+
   ForecastResult project({
     List<Account>? accounts,
     List<Transaction> movements = const [],
     List<RecurringRule> rules = const [],
+    List<SalarySource> salarySources = const [],
     int months = 3,
   }) => ForecastEngine.project(
     accounts: accounts ?? [account()],
     movements: movements,
     rules: rules,
+    salarySources: salarySources,
     from: today,
     months: months,
   );
@@ -285,6 +307,93 @@ void main() {
         DateTime.utc(2026, 10, 31),
         DateTime.utc(2026, 11, 30),
       ]);
+    });
+  });
+
+  group('fuentes salariales', () {
+    test('un sueldo declarado entra en la proyeccion', () {
+      final result = project(salarySources: [salarySource()], months: 3);
+      expect(result.totalIncome, 510000, reason: 'tres nominas de 1.700');
+    });
+
+    test('el caso que fallaba: sueldo alto y gasto recurrente pequeno', () {
+      // Con 1.700 al mes de sueldo y 50 de gasto recurrente, dos anos no
+      // pueden acabar en numeros rojos. Antes el motor ignoraba las fuentes
+      // salariales y solo veia el gasto.
+      final result = project(
+        rules: [
+          rule(
+            type: MovementType.expense,
+            amount: 5000,
+            startDate: DateTime.utc(2026, 9, 5),
+          ),
+        ],
+        salarySources: [salarySource()],
+        months: 24,
+      );
+
+      expect(result.delta, greaterThan(0));
+      expect(result.endingBalance, greaterThan(result.startingBalance));
+      // 24 nominas del dia 25, que este mes aun no ha llegado, y 23 gastos
+      // del dia 5, que este mes ya paso: 24 × 1.700 − 23 × 50 = 39.650.
+      expect(result.delta, 3965000);
+    });
+
+    test('una fuente inactiva no proyecta nada', () {
+      final result = project(salarySources: [salarySource(isActive: false)]);
+      expect(result.totalIncome, 0);
+    });
+
+    test('sin importe, frecuencia o dia no se inventa la nomina', () {
+      expect(
+        project(salarySources: [salarySource(expectedAmount: null)])
+            .totalIncome,
+        0,
+      );
+      expect(
+        project(salarySources: [salarySource(frequency: null)]).totalIncome,
+        0,
+      );
+      expect(
+        project(salarySources: [salarySource(paymentDay: null)]).totalIncome,
+        0,
+      );
+    });
+
+    test('la nomina de este mes no se cuenta dos veces si ya esta anotada', () {
+      final result = project(
+        movements: [
+          movement(
+            type: MovementType.salary,
+            status: MovementStatus.cobrado,
+            amount: 170000,
+            expectedDate: DateTime.utc(2026, 9, 25),
+            actualDate: DateTime.utc(2026, 9, 25),
+          ).copyWith(salarySourceId: const Value(1)),
+        ],
+        salarySources: [salarySource()],
+        months: 3,
+      );
+
+      // Septiembre ya esta cobrada: solo se proyectan octubre y noviembre.
+      expect(result.totalIncome, 340000);
+    });
+
+    test('respeta el dia de cobro que no existe en un mes corto', () {
+      final result = project(
+        salarySources: [salarySource(paymentDay: 31)],
+        months: 12,
+      );
+      final febrero = result.milestones.firstWhere((m) => m.date.month == 2);
+      expect(febrero.date.day, 28, reason: '2027 no es bisiesto');
+    });
+
+    test('el hito lleva el nombre de la fuente', () {
+      final result = project(
+        salarySources: [salarySource(name: 'Nomina Futon Espai')],
+        months: 1,
+      );
+      expect(result.milestones.single.concept, 'Nomina Futon Espai');
     });
   });
 

@@ -16,6 +16,7 @@ import '../../data/forecast_engine.dart';
 import '../../data/goal_repository.dart';
 import '../../data/movement_repository.dart';
 import '../../data/recurring_rule_repository.dart';
+import '../../data/salary_repository.dart';
 import '../movements/movement_list_tile.dart';
 import '../movements/quick_create_dialogs.dart';
 
@@ -74,6 +75,7 @@ class _DashboardBody extends ConsumerWidget {
     final movements = ref.watch(allMovementsProvider);
     final rules = ref.watch(allRulesProvider);
     final goals = ref.watch(goalsProvider);
+    final salaries = ref.watch(salarySourcesProvider);
 
     final total =
         Money.sum(
@@ -150,6 +152,7 @@ class _DashboardBody extends ConsumerWidget {
           accounts: accounts.map((a) => a.account).toList(),
           movements: rows,
           rules: rules.value ?? const [],
+          salarySources: salaries.value ?? const [],
         ),
         const SizedBox(height: AppTokens.space5),
         SectionHeader(
@@ -349,11 +352,13 @@ class _ForecastCard extends StatelessWidget {
     required this.accounts,
     required this.movements,
     required this.rules,
+    required this.salarySources,
   });
 
   final List<Account> accounts;
   final List<Transaction> movements;
   final List<RecurringRule> rules;
+  final List<SalarySource> salarySources;
 
   @override
   Widget build(BuildContext context) {
@@ -361,6 +366,7 @@ class _ForecastCard extends StatelessWidget {
       accounts: accounts,
       movements: movements,
       rules: rules,
+      salarySources: salarySources,
       from: Dates.today(),
       months: 12,
     );

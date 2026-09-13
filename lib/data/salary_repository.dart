@@ -38,12 +38,18 @@ class SalaryRepository {
     required String name,
     int? expectedAmount,
     RecurrenceFrequency? frequency,
+    int? paymentDay,
     String currency = kDefaultCurrency,
   }) {
+    if (paymentDay != null && (paymentDay < 1 || paymentDay > 31)) {
+      throw ArgumentError('El dia de cobro debe estar entre 1 y 31.');
+    }
+
     final companion = SalarySourcesCompanion(
       name: Value(name.trim()),
       expectedAmount: Value(expectedAmount),
       frequency: Value(frequency),
+      paymentDay: Value(paymentDay),
       currency: Value(currency),
       updatedAt: Value(DateTime.now()),
     );

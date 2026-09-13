@@ -124,12 +124,20 @@ class SalarySources extends Table with _Timestamps {
   TextColumn get frequency =>
       text().nullable().map(recurrenceFrequencyConverter)();
 
+  /// Dia nominal de cobro dentro del periodo.
+  ///
+  /// Sin el, la prevision sabria cuanto entra pero no cuando, y una nomina
+  /// que ya se ha cobrado este mes se contaria otra vez. Sigue la politica de
+  /// DEC-005: si el mes no tiene ese dia, se usa el ultimo valido.
+  IntColumn get paymentDay => integer().nullable()();
+
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
 
   @override
   List<String> get customConstraints => [
     'CHECK ($_currencyCheck)',
     'CHECK (expected_amount IS NULL OR expected_amount >= 0)',
+    'CHECK (payment_day IS NULL OR (payment_day >= 1 AND payment_day <= 31))',
     'CHECK (frequency IS NULL OR '
         'frequency IN (${recurrenceFrequencyConverter.sqlValues}))',
   ];

@@ -2023,6 +2023,17 @@ class $SalarySourcesTable extends SalarySources
       ).withConverter<RecurrenceFrequency?>(
         $SalarySourcesTable.$converterfrequencyn,
       );
+  static const VerificationMeta _paymentDayMeta = const VerificationMeta(
+    'paymentDay',
+  );
+  @override
+  late final GeneratedColumn<int> paymentDay = GeneratedColumn<int>(
+    'payment_day',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isActiveMeta = const VerificationMeta(
     'isActive',
   );
@@ -2047,6 +2058,7 @@ class $SalarySourcesTable extends SalarySources
     expectedAmount,
     currency,
     frequency,
+    paymentDay,
     isActive,
   ];
   @override
@@ -2101,6 +2113,12 @@ class $SalarySourcesTable extends SalarySources
     } else if (isInserting) {
       context.missing(_currencyMeta);
     }
+    if (data.containsKey('payment_day')) {
+      context.handle(
+        _paymentDayMeta,
+        paymentDay.isAcceptableOrUnknown(data['payment_day']!, _paymentDayMeta),
+      );
+    }
     if (data.containsKey('is_active')) {
       context.handle(
         _isActiveMeta,
@@ -2146,6 +2164,10 @@ class $SalarySourcesTable extends SalarySources
           data['${effectivePrefix}frequency'],
         ),
       ),
+      paymentDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}payment_day'],
+      ),
       isActive: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
@@ -2172,6 +2194,13 @@ class SalarySource extends DataClass implements Insertable<SalarySource> {
   final int? expectedAmount;
   final String currency;
   final RecurrenceFrequency? frequency;
+
+  /// Dia nominal de cobro dentro del periodo.
+  ///
+  /// Sin el, la prevision sabria cuanto entra pero no cuando, y una nomina
+  /// que ya se ha cobrado este mes se contaria otra vez. Sigue la politica de
+  /// DEC-005: si el mes no tiene ese dia, se usa el ultimo valido.
+  final int? paymentDay;
   final bool isActive;
   const SalarySource({
     required this.id,
@@ -2181,6 +2210,7 @@ class SalarySource extends DataClass implements Insertable<SalarySource> {
     this.expectedAmount,
     required this.currency,
     this.frequency,
+    this.paymentDay,
     required this.isActive,
   });
   @override
@@ -2199,6 +2229,9 @@ class SalarySource extends DataClass implements Insertable<SalarySource> {
         $SalarySourcesTable.$converterfrequencyn.toSql(frequency),
       );
     }
+    if (!nullToAbsent || paymentDay != null) {
+      map['payment_day'] = Variable<int>(paymentDay);
+    }
     map['is_active'] = Variable<bool>(isActive);
     return map;
   }
@@ -2216,6 +2249,9 @@ class SalarySource extends DataClass implements Insertable<SalarySource> {
       frequency: frequency == null && nullToAbsent
           ? const Value.absent()
           : Value(frequency),
+      paymentDay: paymentDay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(paymentDay),
       isActive: Value(isActive),
     );
   }
@@ -2233,6 +2269,7 @@ class SalarySource extends DataClass implements Insertable<SalarySource> {
       expectedAmount: serializer.fromJson<int?>(json['expectedAmount']),
       currency: serializer.fromJson<String>(json['currency']),
       frequency: serializer.fromJson<RecurrenceFrequency?>(json['frequency']),
+      paymentDay: serializer.fromJson<int?>(json['paymentDay']),
       isActive: serializer.fromJson<bool>(json['isActive']),
     );
   }
@@ -2247,6 +2284,7 @@ class SalarySource extends DataClass implements Insertable<SalarySource> {
       'expectedAmount': serializer.toJson<int?>(expectedAmount),
       'currency': serializer.toJson<String>(currency),
       'frequency': serializer.toJson<RecurrenceFrequency?>(frequency),
+      'paymentDay': serializer.toJson<int?>(paymentDay),
       'isActive': serializer.toJson<bool>(isActive),
     };
   }
@@ -2259,6 +2297,7 @@ class SalarySource extends DataClass implements Insertable<SalarySource> {
     Value<int?> expectedAmount = const Value.absent(),
     String? currency,
     Value<RecurrenceFrequency?> frequency = const Value.absent(),
+    Value<int?> paymentDay = const Value.absent(),
     bool? isActive,
   }) => SalarySource(
     id: id ?? this.id,
@@ -2270,6 +2309,7 @@ class SalarySource extends DataClass implements Insertable<SalarySource> {
         : this.expectedAmount,
     currency: currency ?? this.currency,
     frequency: frequency.present ? frequency.value : this.frequency,
+    paymentDay: paymentDay.present ? paymentDay.value : this.paymentDay,
     isActive: isActive ?? this.isActive,
   );
   SalarySource copyWithCompanion(SalarySourcesCompanion data) {
@@ -2283,6 +2323,9 @@ class SalarySource extends DataClass implements Insertable<SalarySource> {
           : this.expectedAmount,
       currency: data.currency.present ? data.currency.value : this.currency,
       frequency: data.frequency.present ? data.frequency.value : this.frequency,
+      paymentDay: data.paymentDay.present
+          ? data.paymentDay.value
+          : this.paymentDay,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
     );
   }
@@ -2297,6 +2340,7 @@ class SalarySource extends DataClass implements Insertable<SalarySource> {
           ..write('expectedAmount: $expectedAmount, ')
           ..write('currency: $currency, ')
           ..write('frequency: $frequency, ')
+          ..write('paymentDay: $paymentDay, ')
           ..write('isActive: $isActive')
           ..write(')'))
         .toString();
@@ -2311,6 +2355,7 @@ class SalarySource extends DataClass implements Insertable<SalarySource> {
     expectedAmount,
     currency,
     frequency,
+    paymentDay,
     isActive,
   );
   @override
@@ -2324,6 +2369,7 @@ class SalarySource extends DataClass implements Insertable<SalarySource> {
           other.expectedAmount == this.expectedAmount &&
           other.currency == this.currency &&
           other.frequency == this.frequency &&
+          other.paymentDay == this.paymentDay &&
           other.isActive == this.isActive);
 }
 
@@ -2335,6 +2381,7 @@ class SalarySourcesCompanion extends UpdateCompanion<SalarySource> {
   final Value<int?> expectedAmount;
   final Value<String> currency;
   final Value<RecurrenceFrequency?> frequency;
+  final Value<int?> paymentDay;
   final Value<bool> isActive;
   const SalarySourcesCompanion({
     this.id = const Value.absent(),
@@ -2344,6 +2391,7 @@ class SalarySourcesCompanion extends UpdateCompanion<SalarySource> {
     this.expectedAmount = const Value.absent(),
     this.currency = const Value.absent(),
     this.frequency = const Value.absent(),
+    this.paymentDay = const Value.absent(),
     this.isActive = const Value.absent(),
   });
   SalarySourcesCompanion.insert({
@@ -2354,6 +2402,7 @@ class SalarySourcesCompanion extends UpdateCompanion<SalarySource> {
     this.expectedAmount = const Value.absent(),
     required String currency,
     this.frequency = const Value.absent(),
+    this.paymentDay = const Value.absent(),
     this.isActive = const Value.absent(),
   }) : name = Value(name),
        currency = Value(currency);
@@ -2365,6 +2414,7 @@ class SalarySourcesCompanion extends UpdateCompanion<SalarySource> {
     Expression<int>? expectedAmount,
     Expression<String>? currency,
     Expression<String>? frequency,
+    Expression<int>? paymentDay,
     Expression<bool>? isActive,
   }) {
     return RawValuesInsertable({
@@ -2375,6 +2425,7 @@ class SalarySourcesCompanion extends UpdateCompanion<SalarySource> {
       if (expectedAmount != null) 'expected_amount': expectedAmount,
       if (currency != null) 'currency': currency,
       if (frequency != null) 'frequency': frequency,
+      if (paymentDay != null) 'payment_day': paymentDay,
       if (isActive != null) 'is_active': isActive,
     });
   }
@@ -2387,6 +2438,7 @@ class SalarySourcesCompanion extends UpdateCompanion<SalarySource> {
     Value<int?>? expectedAmount,
     Value<String>? currency,
     Value<RecurrenceFrequency?>? frequency,
+    Value<int?>? paymentDay,
     Value<bool>? isActive,
   }) {
     return SalarySourcesCompanion(
@@ -2397,6 +2449,7 @@ class SalarySourcesCompanion extends UpdateCompanion<SalarySource> {
       expectedAmount: expectedAmount ?? this.expectedAmount,
       currency: currency ?? this.currency,
       frequency: frequency ?? this.frequency,
+      paymentDay: paymentDay ?? this.paymentDay,
       isActive: isActive ?? this.isActive,
     );
   }
@@ -2427,6 +2480,9 @@ class SalarySourcesCompanion extends UpdateCompanion<SalarySource> {
         $SalarySourcesTable.$converterfrequencyn.toSql(frequency.value),
       );
     }
+    if (paymentDay.present) {
+      map['payment_day'] = Variable<int>(paymentDay.value);
+    }
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
@@ -2443,6 +2499,7 @@ class SalarySourcesCompanion extends UpdateCompanion<SalarySource> {
           ..write('expectedAmount: $expectedAmount, ')
           ..write('currency: $currency, ')
           ..write('frequency: $frequency, ')
+          ..write('paymentDay: $paymentDay, ')
           ..write('isActive: $isActive')
           ..write(')'))
         .toString();

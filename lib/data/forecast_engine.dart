@@ -119,13 +119,15 @@ abstract final class ForecastEngine {
     required List<RecurringRule> rules,
     required DateTime from,
     required int months,
+    List<SalarySource> salarySources = const [],
   }) {
     final today = Dates.day(from);
     final startingBalance = _currentBalance(accounts, movements);
 
     final committed = _committedMilestones(movements, today, months);
     final recurring = _recurringMilestones(rules, movements, today, months);
-    final milestones = [...committed, ...recurring]
+    final salaries = _salaryMilestones(salarySources, movements, today, months);
+    final milestones = [...committed, ...recurring, ...salaries]
       ..sort((a, b) => a.date.compareTo(b.date));
 
     final points = _accumulate(
@@ -226,6 +228,63 @@ abstract final class ForecastEngine {
             concept: rule.concept,
             amount: rule.amount,
             isIncome: rule.type.isIncome,
+            fromRule: true,
+          ),
+        );
+      }
+    }
+    return milestones;
+  }
+
+  /// Nominas esperadas de las fuentes salariales activas.
+  ///
+  /// Una fuente con importe, frecuencia y dia de cobro es una previsión de
+  /// ingreso tan legitima como una regla recurrente: si no entrara aqui, un
+  /// sueldo declarado no aparecería en la proyeccion y bastaria un gasto
+  /// recurrente pequeño para pintar el futuro en numeros rojos.
+  ///
+  /// Se omite la ocurrencia cuya fecha ya tiene una nomina registrada de esa
+  /// misma fuente, y tambien el mes que ya tiene una: una nomina se cobra una
+  /// vez al mes aunque el dia no coincida exactamente con el declarado.
+  static List<ForecastMilestone> _salaryMilestones(
+    List<SalarySource> sources,
+    List<Transaction> movements,
+    DateTime today,
+    int months,
+  ) {
+    final horizon = DateTime.utc(today.year, today.month + months);
+    final milestones = <ForecastMilestone>[];
+
+    for (final source in sources) {
+      final amount = source.expectedAmount;
+      final frequency = source.frequency;
+      final day = source.paymentDay;
+
+      // Sin importe, frecuencia o dia no hay nada que proyectar, y
+      // rellenarlos a ojo seria inventarse el sueldo de alguien.
+      if (!source.isActive || amount == null || amount <= 0) continue;
+      if (frequency == null || day == null) continue;
+
+      final alreadyPaid = <String>{
+        for (final movement in movements)
+          if (!movement.isDeleted && movement.salarySourceId == source.id)
+            '${movement.expectedDate.year}-${movement.expectedDate.month}',
+      };
+
+      final schedule = RecurrenceSchedule(
+        anchor: Dates.clampToMonth(today.year, today.month, day),
+        frequency: frequency,
+        intervalCount: 1,
+      );
+
+      for (final date in schedule.between(from: today, to: horizon)) {
+        if (alreadyPaid.contains('${date.year}-${date.month}')) continue;
+        milestones.add(
+          ForecastMilestone(
+            date: date,
+            concept: source.name,
+            amount: amount,
+            isIncome: true,
             fromRule: true,
           ),
         );

@@ -71,16 +71,27 @@ class AccountRepository {
 
   /// Cuentas con su saldo real, recalculado ante cualquier cambio.
   Stream<List<AccountBalance>> watchBalances() {
-    final movements = _db.select(_db.transactions)
-      ..where((t) => t.isDeleted.equals(false));
+    // El saldo depende de dos tablas, asi que hay que observar las dos.
+    // Un `select(accounts).watch()` solo reacciona a cambios en accounts:
+    // leer los movimientos dentro del asyncMap no crea ninguna dependencia,
+    // y el saldo se quedaba congelado al pagar un gasto.
+    return _db
+        .customSelect('SELECT 1', readsFrom: {_db.accounts, _db.transactions})
+        .watch()
+        .asyncMap((_) async {
+          final accounts = await _db.select(_db.accounts).get();
+          final movements = await (_db.select(
+            _db.transactions,
+          )..where((t) => t.isDeleted.equals(false))).get();
 
-    return _db.select(_db.accounts).watch().asyncMap((accounts) async {
-      final rows = await movements.get();
-      return [
-        for (final account in accounts)
-          AccountBalance(account: account, balance: balanceOf(account, rows)),
-      ];
-    });
+          return [
+            for (final account in accounts)
+              AccountBalance(
+                account: account,
+                balance: balanceOf(account, movements),
+              ),
+          ];
+        });
   }
 
   /// Categorias activas que admiten el tipo indicado.

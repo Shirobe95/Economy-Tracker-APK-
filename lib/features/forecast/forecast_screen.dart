@@ -13,6 +13,7 @@ import '../../data/account_repository.dart';
 import '../../data/forecast_engine.dart';
 import '../../data/goal_repository.dart';
 import '../../data/movement_repository.dart';
+import '../../data/salary_repository.dart';
 import '../dashboard/dashboard_screen.dart';
 import 'forecast_chart.dart';
 
@@ -33,6 +34,7 @@ class _ForecastScreenState extends ConsumerState<ForecastScreen> {
     final movements = ref.watch(allMovementsProvider);
     final rules = ref.watch(allRulesProvider);
     final goals = ref.watch(goalsProvider);
+    final salaries = ref.watch(salarySourcesProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -64,6 +66,7 @@ class _ForecastScreenState extends ConsumerState<ForecastScreen> {
             accounts: live.map((a) => a.account).toList(),
             movements: movements.value ?? const [],
             rules: rules.value ?? const [],
+            salarySources: salaries.value ?? const [],
             from: Dates.today(),
             months: _months,
           );
@@ -88,9 +91,13 @@ class _ForecastScreenState extends ConsumerState<ForecastScreen> {
         title: const Text('Como se calcula'),
         content: const SingleChildScrollView(
           child: Text(
-            'La proyeccion parte del saldo real de tus cuentas y le suma dos '
+            'La proyeccion parte del saldo real de tus cuentas y le suma tres '
             'cosas: los movimientos que ya tienes anotados con fecha futura, '
-            'y las repeticiones que tocan segun tus reglas recurrentes.\n\n'
+            'las repeticiones que tocan segun tus reglas recurrentes, y las '
+            'nominas de tus fuentes salariales activas.\n\n'
+            'Una fuente salarial solo se proyecta si tiene importe, '
+            'frecuencia y dia de cobro. Si le falta alguno, no aparece: '
+            'preferimos que eches en falta un ingreso a inventarnoslo.\n\n'
             'No estima gastos variables por tu media de meses anteriores, y '
             'no da por cobrado lo que solo esta previsto. Si una fecha ya '
             'esta anotada como movimiento de una regla, no se cuenta dos '

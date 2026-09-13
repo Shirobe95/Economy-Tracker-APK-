@@ -80,51 +80,66 @@ class ProjectRepository {
   }
 
   /// Proyectos con cliente y totales, para las listas.
+  /// Proyectos con cliente y totales, para las listas.
+  ///
+  /// Observa tambien `transactions`: los totales dependen de los cobros, y
+  /// un watch solo sobre projects no reaccionaria al registrar uno.
   Stream<List<ProjectSummary>> watchSummaries({int? clientId}) {
-    final projects = _db.select(_db.projects);
-    if (clientId != null) {
-      projects.where((p) => p.clientId.equals(clientId));
-    }
+    return _db
+        .customSelect(
+          'SELECT 1',
+          readsFrom: {_db.projects, _db.clients, _db.transactions},
+        )
+        .watch()
+        .asyncMap((_) async {
+          final projects = _db.select(_db.projects);
+          if (clientId != null) {
+            projects.where((p) => p.clientId.equals(clientId));
+          }
 
-    final joined = projects.join([
-      innerJoin(_db.clients, _db.clients.id.equalsExp(_db.projects.clientId)),
-    ]);
+          final rows = await projects.join([
+            innerJoin(
+              _db.clients,
+              _db.clients.id.equalsExp(_db.projects.clientId),
+            ),
+          ]).get();
 
-    return joined.watch().asyncMap((rows) async {
-      final incomes =
-          await (_db.select(_db.transactions)
-                ..where((t) => t.isDeleted.equals(false))
-                ..where((t) => t.projectId.isNotNull()))
-              .get();
+          final incomes =
+              await (_db.select(_db.transactions)
+                    ..where((t) => t.isDeleted.equals(false))
+                    ..where((t) => t.projectId.isNotNull()))
+                  .get();
 
-      return [
-        for (final row in rows)
-          () {
-            final project = row.readTable(_db.projects);
-            final own = incomes.where((t) => t.projectId == project.id);
-            return ProjectSummary(
-              project: project,
-              client: row.readTable(_db.clients),
-              collected:
-                  Money.sum(
-                    own.where((t) => t.status.isRealised).map((t) => t.amount),
-                  ) ??
-                  0,
-              pending:
-                  Money.sum(
-                    own
-                        .where(
-                          (t) =>
-                              !t.status.isRealised &&
-                              t.status != MovementStatus.cancelado,
-                        )
-                        .map((t) => t.amount),
-                  ) ??
-                  0,
-            );
-          }(),
-      ]..sort((a, b) => a.project.name.compareTo(b.project.name));
-    });
+          return [
+            for (final row in rows)
+              () {
+                final project = row.readTable(_db.projects);
+                final own = incomes.where((t) => t.projectId == project.id);
+                return ProjectSummary(
+                  project: project,
+                  client: row.readTable(_db.clients),
+                  collected:
+                      Money.sum(
+                        own
+                            .where((t) => t.status.isRealised)
+                            .map((t) => t.amount),
+                      ) ??
+                      0,
+                  pending:
+                      Money.sum(
+                        own
+                            .where(
+                              (t) =>
+                                  !t.status.isRealised &&
+                                  t.status != MovementStatus.cancelado,
+                            )
+                            .map((t) => t.amount),
+                      ) ??
+                      0,
+                );
+              }(),
+          ]..sort((a, b) => a.project.name.compareTo(b.project.name));
+        });
   }
 
   Future<int> saveClient({int? id, required String name, String? contact}) {
