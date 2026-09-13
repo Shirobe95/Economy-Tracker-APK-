@@ -37,6 +37,11 @@ class DashboardScreen extends ConsumerWidget {
         title: Text(formatMonth(month)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.insights_outlined),
+            tooltip: 'Informes',
+            onPressed: () => context.push('/informes'),
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Ajustes',
             onPressed: () => context.push('/ajustes'),

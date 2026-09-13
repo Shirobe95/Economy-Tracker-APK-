@@ -13,6 +13,7 @@ import 'package:economy_tracker/features/forecast/forecast_screen.dart';
 import 'package:economy_tracker/features/goals/goals_screen.dart';
 import 'package:economy_tracker/features/income/income_screen.dart';
 import 'package:economy_tracker/features/projects/projects_screen.dart';
+import 'package:economy_tracker/features/reports/reports_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -292,6 +293,10 @@ void main() {
   testWidgets(
     'calendario',
     (t) => capture(t, '07-calendario', const CalendarScreen()),
+  );
+  testWidgets(
+    'informes',
+    (t) => capture(t, '08-informes', const ReportsScreen()),
   );
 }
 

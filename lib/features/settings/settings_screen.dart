@@ -48,6 +48,12 @@ class SettingsScreen extends StatelessWidget {
             subtitle: 'Pagos y cobros del mes',
             route: '/calendario',
           ),
+          _Entry(
+            icon: Icons.insights_outlined,
+            title: 'Informes',
+            subtitle: 'En que se va el dinero, mes a mes',
+            route: '/informes',
+          ),
           const SizedBox(height: AppTokens.space5),
           const SectionHeader('Datos y seguridad'),
           const SizedBox(height: AppTokens.space2),
