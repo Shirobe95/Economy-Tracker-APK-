@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
+import 'theme/app_tokens.dart';
 
 /// Raiz de la aplicacion.
 class EconomyTrackerApp extends StatefulWidget {
@@ -14,6 +16,20 @@ class EconomyTrackerApp extends StatefulWidget {
 
 class _EconomyTrackerAppState extends State<EconomyTrackerApp> {
   late final _router = buildRouter();
+
+  @override
+  void initState() {
+    super.initState();
+    // Barras del sistema integradas con el fondo oscuro, con iconos claros.
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: AppTokens.background,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

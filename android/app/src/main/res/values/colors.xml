@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fondo del sistema visual PALIKO. Debe coincidir con
+         AppTokens.background para que el arranque no destelle en blanco. -->
+    <color name="app_background">#0A1825</color>
+</resources>
