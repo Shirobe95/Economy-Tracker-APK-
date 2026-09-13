@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/database/enums.dart';
 import '../../core/widgets/app_shell.dart';
 import '../../features/accounts/accounts_screen.dart';
+import '../../features/backup/backup_screen.dart';
 import '../../features/calendar/calendar_screen.dart';
 import '../../features/categories/categories_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
@@ -22,6 +23,7 @@ import '../../features/projects/projects_screen.dart';
 import '../../features/reports/reports_screen.dart';
 import '../../features/salaries/salaries_screen.dart';
 import '../../features/salaries/salary_source_form_screen.dart';
+import '../../features/security/security_settings_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
 /// Rutas de la aplicacion.
@@ -186,6 +188,14 @@ GoRouter buildRouter() {
       GoRoute(
         path: '/ajustes',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/ajustes/copia',
+        builder: (context, state) => const BackupScreen(),
+      ),
+      GoRoute(
+        path: '/ajustes/bloqueo',
+        builder: (context, state) => const SecuritySettingsScreen(),
       ),
     ],
     errorBuilder: (context, state) => _RouteNotFound(location: state.uri.path),

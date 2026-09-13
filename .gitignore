@@ -32,3 +32,9 @@ test/failures/
 # Symbols
 app.*.symbols
 app.*.map.json
+
+# Credenciales de firma: nunca al repositorio.
+key.properties
+android/key.properties
+*.jks
+*.keystore

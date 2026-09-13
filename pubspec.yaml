@@ -24,9 +24,17 @@ dependencies:
 
   intl: ^0.20.2
 
+  # Corte K: copia de seguridad y bloqueo local.
+  share_plus: ^11.0.0
+  file_picker: ^10.0.0
+  shared_preferences: ^2.3.3
+  crypto: ^3.0.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Solo para tests: la implementacion en memoria de las preferencias.
+  shared_preferences_platform_interface: ^2.4.1
   flutter_lints: ^6.0.0
   build_runner: ^2.4.13
   drift_dev: ^2.28.0

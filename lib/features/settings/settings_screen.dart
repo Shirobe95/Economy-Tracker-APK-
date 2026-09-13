@@ -49,8 +49,21 @@ class SettingsScreen extends StatelessWidget {
             route: '/calendario',
           ),
           const SizedBox(height: AppTokens.space5),
-          const SectionHeader('Sobre tus datos'),
+          const SectionHeader('Datos y seguridad'),
           const SizedBox(height: AppTokens.space2),
+          _Entry(
+            icon: Icons.backup_outlined,
+            title: 'Copia de seguridad',
+            subtitle: 'Exportar y restaurar tus datos',
+            route: '/ajustes/copia',
+          ),
+          _Entry(
+            icon: Icons.lock_outline,
+            title: 'Bloqueo',
+            subtitle: 'Pedir un PIN al abrir la aplicacion',
+            route: '/ajustes/bloqueo',
+          ),
+          const SizedBox(height: AppTokens.space4),
           const FinanceCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,14 +76,8 @@ class SettingsScreen extends StatelessWidget {
                 Text(
                   'No hay cuenta de usuario, servidor ni sincronizacion. Los '
                   'datos viven en una base local privada de la aplicacion, y '
-                  'desaparecen si la desinstalas.',
+                  'desaparecen si la desinstalas: haz copias.',
                   style: TextStyle(color: AppTokens.textSecondary),
-                ),
-                SizedBox(height: AppTokens.space3),
-                Text(
-                  'La copia de seguridad y el bloqueo por huella todavia no '
-                  'estan implementados.',
-                  style: TextStyle(color: AppTokens.textMuted),
                 ),
               ],
             ),

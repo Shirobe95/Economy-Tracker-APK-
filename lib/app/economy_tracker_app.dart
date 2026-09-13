@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import '../features/security/lock_screen.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_tokens.dart';
@@ -46,6 +47,10 @@ class _EconomyTrackerAppState extends State<EconomyTrackerApp> {
         GlobalCupertinoLocalizations.delegate,
       ],
       routerConfig: _router,
+      // El bloqueo envuelve toda la aplicacion: cualquier ruta queda detras
+      // del PIN, no solo la pantalla inicial.
+      builder: (context, child) =>
+          AppLockGate(child: child ?? const SizedBox()),
     );
   }
 }
