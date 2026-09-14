@@ -6,9 +6,9 @@ status: active
 mode: diario
 owner: compartido
 current_cut: ECON-100 (reconstruccion)
-next_action: Roadmap completo (B a K) con analyze limpio, 168 tests y APK release en verde. Pendiente revision en Android fisico: estilo, y lo que depende de plugins nativos (compartir copia, elegir archivo, PIN). Ver [[CLAUDE · Reconstrucción completa en repositorio]].
+next_action: Segunda ronda de pruebas de Andy en movil cerrada: saldo, prevision, proyectos por cliente, objetivo mensual, pago rapido de recurrentes y pantalla de Movimientos. Esperando su tercera pasada sobre el APK del 2026-09-14. Ver [[CLAUDE · Reconstrucción completa en repositorio]].
 created: 2026-09-05
-updated: 2026-09-13
+updated: 2026-09-14
 ---
 
 # Economy Tracker · Inicio
@@ -74,17 +74,47 @@ Tres desviaciones deliberadas respecto a esta documentación, explicadas en
 histórica, fechas financieras como texto ISO en vez de timestamp, y un
 repositorio de movimientos único en vez de uno por corte.
 
+## Pruebas en dispositivo · 2026-09-13 y 2026-09-14
+
+Andy probó el APK release en su móvil. Lo que encontró, y cómo quedó:
+
+| Lo que reportó | Causa real | Estado |
+| --- | --- | --- |
+| El saldo no se descontaba al pagar | `watchBalances()` solo observaba `accounts`, no `transactions` | corregido |
+| Previsión en negativo con sueldo de 1.700 | el motor ignoraba las fuentes salariales | corregido |
+| No se podía crear proyecto dentro de un cliente | streams Drift compartidos, ver [[DEC-008 · Disparador de recarga en streams Drift]] | corregido en la 2.ª pasada |
+| Cobrar un pago recurrente no funcionaba | no había acción; había que crear el gasto a mano | botón «Pagar ya / Cobrar ya» |
+| Falta objetivo de ahorro mensual | solo existía objetivo por importe | esquema v3, `savings_goals.kind` |
+| Falta ver todos los movimientos desde Inicio | no existía esa pantalla | UI-17, ver [[Inventario de pantallas]] |
+| Marcar pagado desde Inicio | no existía | acción rápida en la fila, con deshacer |
+
+Dos lecciones que conviene no perder:
+
+1. **El fallo de los proyectos sobrevivió a una corrección.** La primera pasada
+   endureció el formulario, que no era la causa. Está documentado en DEC-008
+   junto con la regla para no repetirlo.
+2. **«Sobrar no es ahorrar».** Al pedir Andy que el dinero sobrante del mes
+   cuente como ahorro, se implementó el histórico mensual mostrando lo que quedó
+   libre, pero rotulado como tal y no como dinero apartado. Es una diferencia
+   real de [[Modelo financiero funcional]] y la pantalla la dice en voz alta.
+
+Esquema de datos: **v3**. v1→v2 añadió `salary_sources.payment_day`; v2→v3 añade
+`savings_goals.kind` y el índice único `idx_tx_rule_occurrence`
+(`recurring_rule_id`, `expected_date`), que hace idempotente el pago rápido de
+recurrencias. La migración a v3 deduplica antes de crear el índice, y abrir una
+base más nueva que el binario falla con mensaje explícito en vez de corromper.
+
 ## Roadmap
 
 - [[ECON-000A · Producto UX Arquitectura]] — completed
 - [[ECON-000B · Bootstrap Flutter y sistema visual]] — completed
 - [[ECON-000C · Modelo de datos y SQLite]] — completed
 - [[ECON-000D · Movimientos y gastos]] — completed (validación técnica en verde; revisión visual de Andy en Android OK; pendiente recompilar/reverificar tras el fix de tokens PALIKO)
-- [[ECON-000E · Clientes proyectos y cobros]] — review (implementado sobre DEC-006; pendiente analyze/tests/build y prueba real)
-- [[ECON-000F · Salarios e ingresos recurrentes]] — planned
-- [[ECON-000G · Motor de previsión]] — planned
-- [[ECON-000H · Objetivos de ahorro]] — planned
-- [[ECON-000I · Calendario financiero]] — planned
+- [[ECON-000E · Clientes proyectos y cobros]] — completed (reimplementado en ECON-100 y probado en móvil)
+- [[ECON-000F · Salarios e ingresos recurrentes]] — completed
+- [[ECON-000G · Motor de previsión]] — completed
+- [[ECON-000H · Objetivos de ahorro]] — completed (por importe y mensual)
+- [[ECON-000I · Calendario financiero]] — completed
 - [[ECON-000J · Informes y análisis]] — completed
 - [[ECON-000K · Seguridad backup y release Android]] — completed (sin huella ni cifrado en reposo)
 

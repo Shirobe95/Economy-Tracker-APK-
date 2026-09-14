@@ -49,6 +49,12 @@ class SettingsScreen extends StatelessWidget {
             route: '/calendario',
           ),
           _Entry(
+            icon: Icons.receipt_long_outlined,
+            title: 'Todos los movimientos',
+            subtitle: 'Buscar en todo el historial',
+            route: '/movimientos',
+          ),
+          _Entry(
             icon: Icons.insights_outlined,
             title: 'Informes',
             subtitle: 'En que se va el dinero, mes a mes',

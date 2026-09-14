@@ -1,6 +1,7 @@
 # Índice de decisiones
 
-Decisiones del prompt de fundación de 2026-09-05.
+Decisiones del prompt de fundación de 2026-09-05, más las que han ido
+saliendo de la reconstrucción.
 
 - [[DEC-001 · Plataforma y persistencia local]]
 - [[DEC-002 · Sin backend ni login]]
@@ -9,3 +10,4 @@ Decisiones del prompt de fundación de 2026-09-05.
 - [[DEC-005 · Recurrencias en días inexistentes]]
 - [[DEC-006 · Importe neto en cobros de proyecto]]
 - [[DEC-007 · Origen de los tokens visuales]]
+- [[DEC-008 · Disparador de recarga en streams Drift]]

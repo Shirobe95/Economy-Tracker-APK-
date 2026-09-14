@@ -12,6 +12,7 @@ import 'package:economy_tracker/features/expenses/expenses_screen.dart';
 import 'package:economy_tracker/features/forecast/forecast_screen.dart';
 import 'package:economy_tracker/features/goals/goals_screen.dart';
 import 'package:economy_tracker/features/income/income_screen.dart';
+import 'package:economy_tracker/features/movements/movements_screen.dart';
 import 'package:economy_tracker/features/projects/projects_screen.dart';
 import 'package:economy_tracker/features/reports/reports_screen.dart';
 import 'package:flutter/material.dart';
@@ -308,6 +309,10 @@ void main() {
   testWidgets(
     'informes',
     (t) => capture(t, '08-informes', const ReportsScreen()),
+  );
+  testWidgets(
+    'movimientos',
+    (t) => capture(t, '09-movimientos', const MovementsScreen()),
   );
 }
 

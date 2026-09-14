@@ -162,7 +162,7 @@ class _GoalCard extends ConsumerWidget {
             ),
             const SizedBox(height: AppTokens.space3),
             if (goal.isMonthly)
-              _MonthlyFooter(goal: goal)
+              _MonthlyHistory(goal: goal)
             else
               Row(
                 children: [
@@ -314,15 +314,30 @@ class _DeclareSavings extends ConsumerWidget {
   }
 }
 
-/// Pie de un objetivo mensual.
+/// Historial de un objetivo mensual.
 ///
-/// Enseña lo que ha sobrado este mes junto a lo apartado, pero sin sumarlo:
-/// que sobre dinero no significa que se haya ahorrado (DEC-003). Es una
-/// referencia para decidir cuanto apartar, no el dato del objetivo.
-class _MonthlyFooter extends ConsumerWidget {
-  const _MonthlyFooter({required this.goal});
+/// Enseña lo que ha sobrado cada mes y si llegaba al objetivo. Lo sobrante y
+/// lo ahorrado no son lo mismo (DEC-003), así que se etiqueta como lo que
+/// es: lo que quedó libre ese mes, no lo que se apartó de verdad.
+class _MonthlyHistory extends ConsumerWidget {
+  const _MonthlyHistory({required this.goal});
 
   final GoalProgress goal;
+
+  static const _months = [
+    'ene',
+    'feb',
+    'mar',
+    'abr',
+    'may',
+    'jun',
+    'jul',
+    'ago',
+    'sep',
+    'oct',
+    'nov',
+    'dic',
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -333,31 +348,72 @@ class _MonthlyFooter extends ConsumerWidget {
       movements: movements,
       categories: const [],
       reference: Dates.today(),
-      range: ReportRange.month,
+      range: ReportRange.halfYear,
     );
     if (!report.hasData) return const SizedBox.shrink();
 
-    final leftover = report.net;
+    final target = goal.goal.targetAmount;
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          leftover >= 0
-              ? Icons.trending_up_rounded
-              : Icons.trending_down_rounded,
-          size: 16,
-          color: leftover >= 0 ? AppTokens.positive : AppTokens.negative,
-        ),
-        const SizedBox(width: 6),
+        const Divider(height: AppTokens.space5),
+        const SectionHeader('Lo que ha sobrado cada mes'),
+        const SizedBox(height: AppTokens.space3),
+        for (final month in report.monthly.reversed)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppTokens.space2),
+            child: Row(
+              children: [
+                Icon(
+                  month.net >= target
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.remove_circle_outline_rounded,
+                  size: 16,
+                  color: month.net >= target
+                      ? AppTokens.positive
+                      : AppTokens.textMuted,
+                ),
+                const SizedBox(width: AppTokens.space2),
+                SizedBox(
+                  width: 64,
+                  child: Text(
+                    '${_months[month.month.month - 1]} '
+                    '${month.month.year % 100}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: target <= 0
+                          ? 0
+                          : (month.net / target).clamp(0.0, 1.0),
+                      minHeight: 6,
+                      color: month.net >= target
+                          ? AppTokens.positive
+                          : AppTokens.accent,
+                      backgroundColor: AppTokens.surfaceSubtle,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppTokens.space3),
+                MoneyText(
+                  month.net,
+                  compact: true,
+                  signed: true,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: AppTokens.space1),
         Text(
-          'Este mes te ha sobrado ',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        MoneyText(
-          leftover,
-          compact: true,
-          signed: true,
-          style: Theme.of(context).textTheme.bodySmall,
+          'Sobrar no es ahorrar: esto es lo que quedo libre, no lo que '
+          'apartaste. Declara lo apartado para llevar la cuenta de verdad.',
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: AppTokens.textMuted),
         ),
       ],
     );

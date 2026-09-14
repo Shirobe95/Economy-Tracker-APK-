@@ -38,6 +38,11 @@ class DashboardScreen extends ConsumerWidget {
         title: Text(formatMonth(month)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: 'Todos los movimientos',
+            onPressed: () => context.push('/movimientos'),
+          ),
+          IconButton(
             icon: const Icon(Icons.insights_outlined),
             tooltip: 'Informes',
             onPressed: () => context.push('/informes'),
@@ -158,8 +163,8 @@ class _DashboardBody extends ConsumerWidget {
         SectionHeader(
           'Proximos movimientos',
           trailing: TextButton(
-            onPressed: () => context.push('/calendario'),
-            child: const Text('Ver calendario'),
+            onPressed: () => context.push('/movimientos'),
+            child: const Text('Ver todos'),
           ),
         ),
         const SizedBox(height: AppTokens.space2),
@@ -177,6 +182,9 @@ class _DashboardBody extends ConsumerWidget {
               child: MovementListTile(
                 movement: movement,
                 mixedDirections: true,
+                // Marcar pagado sin entrar al detalle: es lo que mas veces
+                // se quiere hacer desde aqui.
+                quickAction: true,
               ),
             ),
       ],

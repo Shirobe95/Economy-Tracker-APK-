@@ -188,6 +188,26 @@ class MovementRepository {
     });
   }
 
+  /// Devuelve un movimiento a un estado no realizado.
+  ///
+  /// Existe para poder deshacer un "pagado" marcado sin querer: al dejar de
+  /// estar realizado pierde la fecha real, porque el dinero ya no se movio.
+  Future<void> revertToStatus(int id, MovementStatus status) async {
+    if (status.isRealised) {
+      throw const MovementValidationError(
+        'Para volver a un estado realizado hace falta su fecha real.',
+      );
+    }
+
+    await (_db.update(_db.transactions)..where((t) => t.id.equals(id))).write(
+      TransactionsCompanion(
+        status: Value(status),
+        actualDate: const Value(null),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   /// Borrado logico: sale del listado y del saldo, conserva la historia.
   Future<void> delete(int id) {
     return (_db.update(_db.transactions)..where((t) => t.id.equals(id))).write(

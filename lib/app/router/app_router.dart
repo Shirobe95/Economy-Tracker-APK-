@@ -16,6 +16,7 @@ import '../../features/goals/goals_screen.dart';
 import '../../features/income/income_screen.dart';
 import '../../features/movements/movement_detail_screen.dart';
 import '../../features/movements/movement_form_screen.dart';
+import '../../features/movements/movements_screen.dart';
 import '../../features/movements/new_movement_sheet.dart';
 import '../../features/projects/client_form_screen.dart';
 import '../../features/projects/project_detail_screen.dart';
@@ -82,6 +83,10 @@ GoRouter buildRouter() {
         path: '/movimientos/transferencia',
         builder: (context, state) =>
             const MovementFormScreen(type: MovementType.transfer),
+      ),
+      GoRoute(
+        path: '/movimientos',
+        builder: (context, state) => const MovementsScreen(),
       ),
       GoRoute(
         path: '/movimientos/:id',

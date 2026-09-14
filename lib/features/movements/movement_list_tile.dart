@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../core/database/enums.dart';
+import '../../core/utils/dates.dart';
+import '../../data/movement_repository.dart';
 
 import '../../app/theme/app_tokens.dart';
 import '../../core/database/app_database.dart';
@@ -13,12 +18,13 @@ import '../../core/widgets/status_indicator.dart';
 /// signo y color; cuando es de un solo tipo, el color va en el indicador de
 /// estado y el importe queda neutro. Es el criterio de DEC-007 ante la
 /// divergencia que reporta el Pack visual.
-class MovementListTile extends StatelessWidget {
+class MovementListTile extends ConsumerWidget {
   const MovementListTile({
     super.key,
     required this.movement,
     this.subtitle,
     this.mixedDirections = false,
+    this.quickAction = false,
   });
 
   final Transaction movement;
@@ -27,8 +33,50 @@ class MovementListTile extends StatelessWidget {
   final String? subtitle;
   final bool mixedDirections;
 
+  /// Anade un boton para darlo por pagado o cobrado sin abrir el detalle.
+  final bool quickAction;
+
+  bool get _canSettle =>
+      quickAction &&
+      !movement.status.isRealised &&
+      movement.status != MovementStatus.cancelado;
+
+  /// Marca el movimiento con la fecha de hoy.
+  ///
+  /// Para la mayoria de veces es la fecha correcta, y ahorra un formulario.
+  /// Si no lo es, el aviso ofrece deshacerlo en el momento.
+  Future<void> _settle(BuildContext context, WidgetRef ref) async {
+    final repository = ref.read(movementRepositoryProvider);
+    final previousStatus = movement.status;
+
+    try {
+      await repository.markRealised(movement.id, Dates.today());
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            movement.type.isIncome
+                ? '${movement.concept}: cobrado hoy'
+                : '${movement.concept}: pagado hoy',
+          ),
+          action: SnackBarAction(
+            label: 'Deshacer',
+            onPressed: () =>
+                repository.revertToStatus(movement.id, previousStatus),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('No se ha podido marcar: $error')));
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isIncome = movement.type.isIncome;
     final signedAmount = isIncome ? movement.amount : -movement.amount;
 
@@ -72,6 +120,16 @@ class MovementListTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppTokens.space2),
+              if (_canSettle)
+                IconButton(
+                  onPressed: () => _settle(context, ref),
+                  visualDensity: VisualDensity.compact,
+                  tooltip: isIncome ? 'Marcar cobrado' : 'Marcar pagado',
+                  icon: const Icon(
+                    Icons.check_circle_outline_rounded,
+                    color: AppTokens.accentBright,
+                  ),
+                ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [

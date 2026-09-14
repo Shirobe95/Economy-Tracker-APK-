@@ -20,6 +20,24 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
   return database;
 });
 
+/// Stream que late al suscribirse y despues en cada cambio de [tables].
+///
+/// Es la forma correcta de observar varias tablas a la vez. El atajo de
+/// observar una consulta tonta con `readsFrom` no sirve: Drift cachea los
+/// streams por su SQL, asi que dos sitios que usen el mismo texto comparten
+/// stream y el segundo acaba escuchando las tablas del primero.
+///
+/// Se delega con `yield*` en vez de recorrer con `await for`, porque asi la
+/// cancelacion llega al stream de origen: con `await for`, cancelar deja el
+/// generador esperando para siempre.
+Stream<void> watchTables(
+  AppDatabase db,
+  List<TableInfo<Table, dynamic>> tables,
+) async* {
+  yield null;
+  yield* db.tableUpdates(TableUpdateQuery.onAllTables(tables));
+}
+
 /// Base de datos en memoria, para tests y renders.
 AppDatabase openInMemoryDatabase() =>
     AppDatabase(DatabaseConnection(NativeDatabase.memory()));

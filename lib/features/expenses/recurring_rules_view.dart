@@ -97,6 +97,12 @@ class _RuleCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final upcoming = RecurrenceSchedule.fromRule(rule)
         .upcoming(from: Dates.today(), count: 6);
+    final settled = ref.watch(settledOccurrencesProvider(rule.id)).value ?? {};
+    // La primera fecha que todavia no esta pagada: es la que ofrece el boton
+    // grande, para no obligar a buscarla entre los chips.
+    final nextPending = upcoming
+        .where((d) => !(settled[isoDay(d)]?.status.isRealised ?? false))
+        .firstOrNull;
 
     return FinanceCard(
       onTap: () => context.push('/reglas/${rule.id}/editar'),
@@ -129,6 +135,10 @@ class _RuleCard extends ConsumerWidget {
               ),
             ],
           ),
+          if (rule.isActive && nextPending != null) ...[
+            const SizedBox(height: AppTokens.space3),
+            _SettleButton(rule: rule, occurrence: nextPending),
+          ],
           if (rule.isActive && upcoming.isNotEmpty) ...[
             const Divider(height: AppTokens.space5),
             const SectionHeader('Proximas fechas'),
@@ -176,6 +186,88 @@ final settledOccurrencesProvider =
       (ref, ruleId) =>
           ref.watch(recurringRuleRepositoryProvider).watchSettled(ruleId),
     );
+
+/// Boton principal de la tarjeta: liquida la proxima fecha pendiente.
+class _SettleButton extends ConsumerStatefulWidget {
+  const _SettleButton({required this.rule, required this.occurrence});
+
+  final RecurringRule rule;
+  final DateTime occurrence;
+
+  @override
+  ConsumerState<_SettleButton> createState() => _SettleButtonState();
+}
+
+class _SettleButtonState extends ConsumerState<_SettleButton> {
+  bool _working = false;
+
+  Future<void> _settle() async {
+    if (_working) return;
+
+    final result = await showModalBottomSheet<({DateTime date, int amount})>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) =>
+          _SettleSheet(rule: widget.rule, occurrence: widget.occurrence),
+    );
+    if (result == null || !mounted) return;
+
+    setState(() => _working = true);
+    try {
+      await ref
+          .read(recurringRuleRepositoryProvider)
+          .settleOccurrence(
+            rule: widget.rule,
+            occurrence: widget.occurrence,
+            actualDate: result.date,
+            amount: result.amount,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.rule.type.isIncome
+                ? '${widget.rule.concept} marcado como cobrado'
+                : '${widget.rule.concept} marcado como pagado',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('No se ha podido marcar: $error')));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final income = widget.rule.type.isIncome;
+
+    return FilledButton.icon(
+      onPressed: _working ? null : _settle,
+      style: FilledButton.styleFrom(
+        backgroundColor: AppTokens.surfaceElevated,
+        foregroundColor: AppTokens.accentBright,
+        minimumSize: const Size.fromHeight(44),
+      ),
+      icon: _working
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.check_circle_outline, size: 18),
+      label: Text(
+        income
+            ? 'Cobrar ya (${formatDay(widget.occurrence)})'
+            : 'Pagar ya (${formatDay(widget.occurrence)})',
+      ),
+    );
+  }
+}
 
 /// Una fecha de la regla, pulsable para darla por pagada.
 class _OccurrenceChip extends ConsumerStatefulWidget {
