@@ -152,7 +152,13 @@ quedaba pendiente:
 - **Huella**, que Andy pidió expresamente: [[DEC-011 · Huella como atajo del PIN]].
   Acompaña al PIN, no lo sustituye, y esa diferencia es deliberada.
 
-259 tests, analyze y format limpios.
+- **Un mes a medias salia como mes fallado.** Andy declaro 200 € apartados y
+  justo debajo leia «sep 26 · −227 €» con icono de incumplido. La cifra era
+  correcta —cero ingresos cobrados, 227,84 € pagados— pero el veredicto no:
+  septiembre ni ha terminado ni se cubrio entero.
+  [[DEC-013 · Mes de arranque y meses parciales]].
+
+274 tests, analyze y format limpios.
 
 ## Roadmap
 

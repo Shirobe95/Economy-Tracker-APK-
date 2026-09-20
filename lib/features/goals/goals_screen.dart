@@ -12,6 +12,7 @@ import '../../core/widgets/section_header.dart';
 import '../../core/utils/dates.dart';
 import '../../data/movement_repository.dart';
 import '../../data/report_engine.dart';
+import '../../data/tracking_start.dart';
 import '../../data/goal_repository.dart';
 
 /// Objetivos de ahorro (UI-12).
@@ -342,17 +343,31 @@ class _MonthlyHistory extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final movements = ref.watch(allMovementsProvider).value;
-    if (movements == null) return const SizedBox.shrink();
+    final tracking = ref.watch(trackingStartProvider).value;
+    if (movements == null || tracking == null) return const SizedBox.shrink();
 
+    final today = Dates.today();
     final report = ReportEngine.build(
       movements: movements,
       categories: const [],
-      reference: Dates.today(),
+      reference: today,
       range: ReportRange.halfYear,
     );
     if (!report.hasData) return const SizedBox.shrink();
 
+    // Los meses anteriores al primer uso no se ensenan. Aparecian a cero con
+    // el icono de incumplido, como si se hubiera fallado un objetivo que
+    // todavia no existia.
+    final visible = [
+      for (final month in report.monthly.reversed)
+        if (tracking.coverageOf(month.month, today).isVisible) month,
+    ];
+    if (visible.isEmpty) return const SizedBox.shrink();
+
     final target = goal.goal.targetAmount;
+    final hayParciales = visible.any(
+      (month) => !tracking.coverageOf(month.month, today).isComparable,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,52 +375,17 @@ class _MonthlyHistory extends ConsumerWidget {
         const Divider(height: AppTokens.space5),
         const SectionHeader('Lo que ha sobrado cada mes'),
         const SizedBox(height: AppTokens.space3),
-        for (final month in report.monthly.reversed)
+        for (final month in visible)
           Padding(
             padding: const EdgeInsets.only(bottom: AppTokens.space2),
-            child: Row(
-              children: [
-                Icon(
-                  month.net >= target
-                      ? Icons.check_circle_outline_rounded
-                      : Icons.remove_circle_outline_rounded,
-                  size: 16,
-                  color: month.net >= target
-                      ? AppTokens.positive
-                      : AppTokens.textMuted,
-                ),
-                const SizedBox(width: AppTokens.space2),
-                SizedBox(
-                  width: 64,
-                  child: Text(
-                    '${_months[month.month.month - 1]} '
-                    '${month.month.year % 100}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: target <= 0
-                          ? 0
-                          : (month.net / target).clamp(0.0, 1.0),
-                      minHeight: 6,
-                      color: month.net >= target
-                          ? AppTokens.positive
-                          : AppTokens.accent,
-                      backgroundColor: AppTokens.surfaceSubtle,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppTokens.space3),
-                MoneyText(
-                  month.net,
-                  compact: true,
-                  signed: true,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+            child: _MonthRow(
+              totals: month,
+              target: target,
+              coverage: tracking.coverageOf(month.month, today),
+              note: tracking.noteFor(month.month, today),
+              label:
+                  '${_months[month.month.month - 1]} '
+                  '${month.month.year % 100}',
             ),
           ),
         const SizedBox(height: AppTokens.space1),
@@ -414,6 +394,94 @@ class _MonthlyHistory extends ConsumerWidget {
           'apartaste. Declara lo apartado para llevar la cuenta de verdad.',
           style: Theme.of(context).textTheme.bodySmall
               ?.copyWith(color: AppTokens.textMuted),
+        ),
+        if (hayParciales) ...[
+          const SizedBox(height: AppTokens.space2),
+          Text(
+            'Un mes a medias no cuenta como cumplido ni como fallado: le '
+            'faltan dias, y con ellos el sueldo o los gastos que no ha '
+            'llegado a ver.',
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: AppTokens.textMuted),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Una fila del historico mensual.
+///
+/// Solo un mes cerrado y cubierto entero recibe veredicto. Los demas ensenan
+/// su cifra, porque es cierta, pero sin decir si se cumplio: en un mes a
+/// medias esa comparacion no significa nada.
+class _MonthRow extends StatelessWidget {
+  const _MonthRow({
+    required this.totals,
+    required this.target,
+    required this.coverage,
+    required this.note,
+    required this.label,
+  });
+
+  final MonthlyTotals totals;
+  final int target;
+  final MonthCoverage coverage;
+  final String? note;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final judged = coverage.isComparable;
+    final met = judged && totals.net >= target;
+
+    return Row(
+      children: [
+        Icon(
+          !judged
+              ? Icons.schedule_outlined
+              : met
+              ? Icons.check_circle_outline_rounded
+              : Icons.remove_circle_outline_rounded,
+          size: 16,
+          color: !judged
+              ? AppTokens.textMuted
+              : met
+              ? AppTokens.positive
+              : AppTokens.textMuted,
+        ),
+        const SizedBox(width: AppTokens.space2),
+        SizedBox(
+          width: 64,
+          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ),
+        Expanded(
+          child: note != null
+              ? Text(
+                  note!,
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: AppTokens.textMuted),
+                )
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: target <= 0
+                        ? 0
+                        : (totals.net / target).clamp(0.0, 1.0),
+                    minHeight: 6,
+                    color: met ? AppTokens.positive : AppTokens.accent,
+                    backgroundColor: AppTokens.surfaceSubtle,
+                  ),
+                ),
+        ),
+        const SizedBox(width: AppTokens.space3),
+        MoneyText(
+          totals.net,
+          compact: true,
+          signed: true,
+          style: Theme.of(context).textTheme.bodySmall,
+          // Sin veredicto, la cifra tampoco grita: es informacion, no nota.
+          color: judged ? null : AppTokens.textSecondary,
         ),
       ],
     );
