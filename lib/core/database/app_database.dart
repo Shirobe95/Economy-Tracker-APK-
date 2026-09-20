@@ -32,11 +32,14 @@ class AppDatabase extends _$AppDatabase {
   ///     mensual, y unicidad de (regla, fecha prevista) en movimientos, que
   ///     es lo que permite marcar una ocurrencia recurrente como pagada sin
   ///     arriesgarse a duplicarla.
+  /// v4: `savings_goals.start_month`, el primer mes que cuenta para la
+  ///     reserva acumulada de un objetivo mensual. Sin el, la reserva
+  ///     dependeria de la marca de tiempo en que se creo la fila.
   ///
   /// Al cambiarlo: subir version, anadir un paso explicito en [migration] y
   /// probarlo con datos previos. Nunca sustituirlo por borrar el archivo.
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -94,6 +97,26 @@ class AppDatabase extends _$AppDatabase {
             )
         ''');
         await m.createIndex(idxTxRuleOccurrence);
+      }
+
+      if (from <= 3) {
+        await m.alterTable(
+          // ignore: experimental_member_use
+          TableMigration(savingsGoals, newColumns: [savingsGoals.startMonth]),
+        );
+
+        // Los objetivos mensuales que ya existian empiezan a contar el mes en
+        // que se crearon, que es lo que se venia suponiendo. `created_at` se
+        // guarda como segundos unix, que es lo que Drift hace por defecto.
+        //
+        // Solo los mensuales: en uno por importe la reserva es la cantidad
+        // declarada, no una acumulacion, asi que un mes de inicio no
+        // significaria nada.
+        await customStatement('''
+          UPDATE savings_goals
+          SET start_month = strftime('%Y-%m-01', created_at, 'unixepoch')
+          WHERE kind = 'monthly' AND start_month IS NULL
+        ''');
       }
 
       if (to > schemaVersion || from > schemaVersion) {

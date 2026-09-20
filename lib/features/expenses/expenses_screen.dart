@@ -14,8 +14,10 @@ import '../../core/widgets/money_text.dart';
 import '../../core/widgets/section_header.dart';
 import '../../data/account_repository.dart';
 import '../../data/movement_repository.dart';
+import '../../data/planned_repository.dart';
 import '../../data/recurring_rule_repository.dart';
 import '../movements/movement_list_tile.dart';
+import '../movements/planned_list_tile.dart';
 import 'recurring_rules_view.dart';
 
 /// Filtro visible del listado de gastos.
@@ -143,20 +145,16 @@ class _ExpenseList extends ConsumerWidget {
   final ExpenseFilter filter;
   final List<Transaction> movements;
 
-  List<Transaction> get _visible => switch (filter) {
-    ExpenseFilter.all => movements,
-    ExpenseFilter.pending =>
-      movements
-          .where(
-            (m) =>
-                m.status == MovementStatus.pendiente ||
-                m.status == MovementStatus.previsto,
-          )
-          .toList(),
-    ExpenseFilter.paid =>
-      movements.where((m) => m.status == MovementStatus.pagado).toList(),
-    ExpenseFilter.recurring => movements,
-  };
+  /// Gastos ya pagados dentro del mes, por su fecha real.
+  List<Transaction> get _paid => movements
+      .where(
+        (m) =>
+            m.status == MovementStatus.pagado &&
+            m.actualDate != null &&
+            !m.actualDate!.isBefore(month) &&
+            m.actualDate!.isBefore(Dates.nextMonthStart(month)),
+      )
+      .toList();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -171,25 +169,20 @@ class _ExpenseList extends ConsumerWidget {
       );
     }
 
-    // Pagados usa la fecha real del mes; pendientes, la fecha prevista.
-    final paid = movements
-        .where(
-          (m) =>
-              m.status == MovementStatus.pagado &&
-              m.actualDate != null &&
-              !m.actualDate!.isBefore(month) &&
-              m.actualDate!.isBefore(Dates.nextMonthStart(month)),
-        )
-        .map((m) => m.amount);
-    final pending = movements
-        .where(
-          (m) =>
-              m.status == MovementStatus.pendiente ||
-              m.status == MovementStatus.previsto,
-        )
-        .map((m) => m.amount);
+    // Lo pendiente incluye las reglas recurrentes que todavia no se han
+    // anotado. Sin ellas, el alquiler y las cuotas no salian en ningun sitio
+    // y «Pendientes» daba una cifra mucho menor que la realidad del mes.
+    final pending =
+        (ref.watch(monthlyPlannedProvider(month)).value ??
+                const <PlannedItem>[])
+            .where((item) => item.type.isExpense)
+            .toList();
 
-    final visible = _visible;
+    final paid = _paid;
+    final hayAlgo = paid.isNotEmpty || pending.isNotEmpty;
+
+    final verPagados = filter != ExpenseFilter.pending;
+    final verPendientes = filter != ExpenseFilter.paid;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -200,29 +193,49 @@ class _ExpenseList extends ConsumerWidget {
       ),
       children: [
         _MetricsCard(
-          paid: Money.sum(paid) ?? 0,
-          pending: Money.sum(pending) ?? 0,
+          paid: Money.sum(paid.map((m) => m.amount)) ?? 0,
+          pending: Money.sum(pending.map((item) => item.amount)) ?? 0,
         ),
         const SizedBox(height: AppTokens.space4),
-        if (movements.isNotEmpty) ...[
-          _CategoryBreakdown(movements: movements),
+        if (paid.isNotEmpty) ...[
+          // Solo lo pagado: asi la suma del reparto cuadra con la cifra de
+          // «Pagados» de arriba. Mezclando pendientes, el total no coincidia
+          // con ninguna de las dos metricas y no habia forma de comprobarlo.
+          _CategoryBreakdown(movements: paid),
           const SizedBox(height: AppTokens.space4),
         ],
-        const SectionHeader('Gastos'),
-        const SizedBox(height: AppTokens.space2),
-        if (visible.isEmpty)
+        if (!hayAlgo)
           EmptyState(
-            message: movements.isEmpty
-                ? 'No hay gastos en ${formatMonth(month).toLowerCase()}.'
-                : 'Ningun gasto coincide con este filtro.',
+            message: 'No hay gastos en ${formatMonth(month).toLowerCase()}.',
             icon: Icons.receipt_long_outlined,
-          )
-        else
-          for (final movement in visible)
+          ),
+        if (verPendientes && pending.isNotEmpty) ...[
+          const SectionHeader('Por pagar'),
+          const SizedBox(height: AppTokens.space2),
+          for (final item in pending)
+            Padding(
+              key: ValueKey(item.key),
+              padding: const EdgeInsets.only(bottom: AppTokens.space2),
+              child: PlannedListTile(item: item, mixedDirections: false),
+            ),
+          const SizedBox(height: AppTokens.space4),
+        ],
+        if (verPagados && paid.isNotEmpty) ...[
+          const SectionHeader('Pagados'),
+          const SizedBox(height: AppTokens.space2),
+          for (final movement in paid)
             Padding(
               padding: const EdgeInsets.only(bottom: AppTokens.space2),
-              child: MovementListTile(movement: movement),
+              child: MovementListTile(movement: movement, showActualDate: true),
             ),
+        ],
+        if (hayAlgo &&
+            ((verPendientes && pending.isEmpty && !verPagados) ||
+                (verPagados && paid.isEmpty && !verPendientes)))
+          EmptyState(
+            message: 'Ningun gasto coincide con este filtro.',
+            icon: Icons.filter_alt_off_outlined,
+          ),
       ],
     );
   }
@@ -303,7 +316,7 @@ class _Metric extends StatelessWidget {
   }
 }
 
-/// Reparto del gasto del mes por categoria.
+/// Reparto por categoria de lo que ya se ha pagado este mes.
 ///
 /// Excluye cancelados: no se ha gastado nada en algo que se anulo.
 class _CategoryBreakdown extends ConsumerWidget {

@@ -2628,6 +2628,15 @@ class $SavingsGoalsTable extends SavingsGoals
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       ).withConverter<DateTime?>($SavingsGoalsTable.$convertertargetDaten);
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime?, String> startMonth =
+      GeneratedColumn<String>(
+        'start_month',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<DateTime?>($SavingsGoalsTable.$converterstartMonthn);
   static const VerificationMeta _isArchivedMeta = const VerificationMeta(
     'isArchived',
   );
@@ -2655,6 +2664,7 @@ class $SavingsGoalsTable extends SavingsGoals
     monthlyContribution,
     currency,
     targetDate,
+    startMonth,
     isArchived,
   ];
   @override
@@ -2788,6 +2798,12 @@ class $SavingsGoalsTable extends SavingsGoals
           data['${effectivePrefix}target_date'],
         ),
       ),
+      startMonth: $SavingsGoalsTable.$converterstartMonthn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}start_month'],
+        ),
+      ),
       isArchived: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_archived'],
@@ -2806,6 +2822,10 @@ class $SavingsGoalsTable extends SavingsGoals
       civilDateConverter;
   static TypeConverter<DateTime?, String?> $convertertargetDaten =
       NullAwareTypeConverter.wrap($convertertargetDate);
+  static TypeConverter<DateTime, String> $converterstartMonth =
+      civilDateConverter;
+  static TypeConverter<DateTime?, String?> $converterstartMonthn =
+      NullAwareTypeConverter.wrap($converterstartMonth);
 }
 
 class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
@@ -2824,6 +2844,13 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
   final int? monthlyContribution;
   final String currency;
   final DateTime? targetDate;
+
+  /// Primer mes que cuenta para un objetivo mensual, siempre dia 1.
+  ///
+  /// La reserva acumulada se calcula desde aqui, asi que es un dato de la
+  /// persona y no la fecha en que se creo la fila: alguien puede empezar a
+  /// apuntar en marzo un ahorro que lleva haciendo desde enero.
+  final DateTime? startMonth;
   final bool isArchived;
   const SavingsGoal({
     required this.id,
@@ -2836,6 +2863,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
     this.monthlyContribution,
     required this.currency,
     this.targetDate,
+    this.startMonth,
     required this.isArchived,
   });
   @override
@@ -2863,6 +2891,11 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
         $SavingsGoalsTable.$convertertargetDaten.toSql(targetDate),
       );
     }
+    if (!nullToAbsent || startMonth != null) {
+      map['start_month'] = Variable<String>(
+        $SavingsGoalsTable.$converterstartMonthn.toSql(startMonth),
+      );
+    }
     map['is_archived'] = Variable<bool>(isArchived);
     return map;
   }
@@ -2885,6 +2918,9 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
       targetDate: targetDate == null && nullToAbsent
           ? const Value.absent()
           : Value(targetDate),
+      startMonth: startMonth == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startMonth),
       isArchived: Value(isArchived),
     );
   }
@@ -2907,6 +2943,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
       ),
       currency: serializer.fromJson<String>(json['currency']),
       targetDate: serializer.fromJson<DateTime?>(json['targetDate']),
+      startMonth: serializer.fromJson<DateTime?>(json['startMonth']),
       isArchived: serializer.fromJson<bool>(json['isArchived']),
     );
   }
@@ -2924,6 +2961,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
       'monthlyContribution': serializer.toJson<int?>(monthlyContribution),
       'currency': serializer.toJson<String>(currency),
       'targetDate': serializer.toJson<DateTime?>(targetDate),
+      'startMonth': serializer.toJson<DateTime?>(startMonth),
       'isArchived': serializer.toJson<bool>(isArchived),
     };
   }
@@ -2939,6 +2977,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
     Value<int?> monthlyContribution = const Value.absent(),
     String? currency,
     Value<DateTime?> targetDate = const Value.absent(),
+    Value<DateTime?> startMonth = const Value.absent(),
     bool? isArchived,
   }) => SavingsGoal(
     id: id ?? this.id,
@@ -2955,6 +2994,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
         : this.monthlyContribution,
     currency: currency ?? this.currency,
     targetDate: targetDate.present ? targetDate.value : this.targetDate,
+    startMonth: startMonth.present ? startMonth.value : this.startMonth,
     isArchived: isArchived ?? this.isArchived,
   );
   SavingsGoal copyWithCompanion(SavingsGoalsCompanion data) {
@@ -2977,6 +3017,9 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
       targetDate: data.targetDate.present
           ? data.targetDate.value
           : this.targetDate,
+      startMonth: data.startMonth.present
+          ? data.startMonth.value
+          : this.startMonth,
       isArchived: data.isArchived.present
           ? data.isArchived.value
           : this.isArchived,
@@ -2996,6 +3039,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
           ..write('monthlyContribution: $monthlyContribution, ')
           ..write('currency: $currency, ')
           ..write('targetDate: $targetDate, ')
+          ..write('startMonth: $startMonth, ')
           ..write('isArchived: $isArchived')
           ..write(')'))
         .toString();
@@ -3013,6 +3057,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
     monthlyContribution,
     currency,
     targetDate,
+    startMonth,
     isArchived,
   );
   @override
@@ -3029,6 +3074,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
           other.monthlyContribution == this.monthlyContribution &&
           other.currency == this.currency &&
           other.targetDate == this.targetDate &&
+          other.startMonth == this.startMonth &&
           other.isArchived == this.isArchived);
 }
 
@@ -3043,6 +3089,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
   final Value<int?> monthlyContribution;
   final Value<String> currency;
   final Value<DateTime?> targetDate;
+  final Value<DateTime?> startMonth;
   final Value<bool> isArchived;
   const SavingsGoalsCompanion({
     this.id = const Value.absent(),
@@ -3055,6 +3102,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     this.monthlyContribution = const Value.absent(),
     this.currency = const Value.absent(),
     this.targetDate = const Value.absent(),
+    this.startMonth = const Value.absent(),
     this.isArchived = const Value.absent(),
   });
   SavingsGoalsCompanion.insert({
@@ -3068,6 +3116,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     this.monthlyContribution = const Value.absent(),
     required String currency,
     this.targetDate = const Value.absent(),
+    this.startMonth = const Value.absent(),
     this.isArchived = const Value.absent(),
   }) : name = Value(name),
        targetAmount = Value(targetAmount),
@@ -3083,6 +3132,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     Expression<int>? monthlyContribution,
     Expression<String>? currency,
     Expression<String>? targetDate,
+    Expression<String>? startMonth,
     Expression<bool>? isArchived,
   }) {
     return RawValuesInsertable({
@@ -3097,6 +3147,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
         'monthly_contribution': monthlyContribution,
       if (currency != null) 'currency': currency,
       if (targetDate != null) 'target_date': targetDate,
+      if (startMonth != null) 'start_month': startMonth,
       if (isArchived != null) 'is_archived': isArchived,
     });
   }
@@ -3112,6 +3163,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     Value<int?>? monthlyContribution,
     Value<String>? currency,
     Value<DateTime?>? targetDate,
+    Value<DateTime?>? startMonth,
     Value<bool>? isArchived,
   }) {
     return SavingsGoalsCompanion(
@@ -3125,6 +3177,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
       monthlyContribution: monthlyContribution ?? this.monthlyContribution,
       currency: currency ?? this.currency,
       targetDate: targetDate ?? this.targetDate,
+      startMonth: startMonth ?? this.startMonth,
       isArchived: isArchived ?? this.isArchived,
     );
   }
@@ -3166,6 +3219,11 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
         $SavingsGoalsTable.$convertertargetDaten.toSql(targetDate.value),
       );
     }
+    if (startMonth.present) {
+      map['start_month'] = Variable<String>(
+        $SavingsGoalsTable.$converterstartMonthn.toSql(startMonth.value),
+      );
+    }
     if (isArchived.present) {
       map['is_archived'] = Variable<bool>(isArchived.value);
     }
@@ -3185,6 +3243,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
           ..write('monthlyContribution: $monthlyContribution, ')
           ..write('currency: $currency, ')
           ..write('targetDate: $targetDate, ')
+          ..write('startMonth: $startMonth, ')
           ..write('isArchived: $isArchived')
           ..write(')'))
         .toString();

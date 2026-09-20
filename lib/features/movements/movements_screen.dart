@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/app_tokens.dart';
 import '../../core/database/app_database.dart';
-import '../../core/database/enums.dart';
 import '../../core/utils/money.dart';
 import '../../core/widgets/feature_placeholder.dart';
 import '../../core/widgets/form_fields.dart';
@@ -15,9 +14,9 @@ import 'movement_list_tile.dart';
 /// Que movimientos se ven.
 enum MovementFilter {
   all('Todos'),
-  pending('Pendientes'),
   expenses('Gastos'),
-  income('Ingresos');
+  income('Ingresos'),
+  transfers('Transferencias');
 
   const MovementFilter(this.label);
 
@@ -25,19 +24,18 @@ enum MovementFilter {
 
   bool matches(Transaction movement) => switch (this) {
     MovementFilter.all => true,
-    MovementFilter.pending =>
-      !movement.status.isRealised &&
-          movement.status != MovementStatus.cancelado,
     MovementFilter.expenses => movement.type.isExpense,
     MovementFilter.income => movement.type.isIncome,
+    MovementFilter.transfers => movement.type.isTransfer,
   };
 }
 
-/// Todos los movimientos, de todas las secciones y todos los meses.
+/// Historial: los movimientos que ya han ocurrido.
 ///
-/// Las pestañas separan gastos de ingresos porque casi siempre se mira una
-/// cosa u otra; esta pantalla es para cuando lo que hace falta es verlo todo
-/// junto y buscar algo concreto.
+/// Solo lo cobrado y lo pagado. Lo previsto vive en Inicio y en el listado de
+/// gastos, que es donde se actua sobre ello; aqui se viene a buscar algo que
+/// ya paso, y mezclar las dos cosas convertia la busqueda en un cajon de
+/// sastre donde no se distinguia el dinero movido del dinero prometido.
 class MovementsScreen extends ConsumerStatefulWidget {
   const MovementsScreen({super.key});
 
@@ -66,8 +64,9 @@ class _MovementsScreenState extends ConsumerState<MovementsScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('$error')),
         data: (rows) {
+          final history = rows.where((m) => m.status.isRealised).toList();
           final visible =
-              rows
+              history
                   .where(_filter.matches)
                   .where(
                     (m) =>
@@ -75,9 +74,10 @@ class _MovementsScreenState extends ConsumerState<MovementsScreen> {
                         m.concept.toLowerCase().contains(query),
                   )
                   .toList()
-                // Lo mas reciente primero: al buscar algo, casi siempre es
-                // de hace poco.
-                ..sort((a, b) => b.expectedDate.compareTo(a.expectedDate));
+                // Por fecha real y no prevista: en el historial lo que cuenta
+                // es cuando se movio el dinero, no cuando tocaba moverlo. Lo
+                // mas reciente primero, que es lo que se suele buscar.
+                ..sort((a, b) => _dateOf(b).compareTo(_dateOf(a)));
 
           return Column(
             children: [
@@ -118,12 +118,13 @@ class _MovementsScreenState extends ConsumerState<MovementsScreen> {
               Expanded(
                 child: visible.isEmpty
                     ? FeaturePlaceholder(
-                        title: rows.isEmpty
+                        title: history.isEmpty
                             ? 'Todavia no hay movimientos'
                             : 'Nada coincide',
-                        description: rows.isEmpty
-                            ? 'Cuando anotes tu primer gasto o ingreso, '
-                                  'aparecera aqui.'
+                        description: history.isEmpty
+                            ? 'Aqui van los gastos y cobros que ya has '
+                                  'hecho. Lo que esta por pagar o por cobrar '
+                                  'lo tienes en Inicio.'
                             : 'Prueba con otro texto u otro filtro.',
                         icon: Icons.receipt_long_outlined,
                       )
@@ -137,6 +138,13 @@ class _MovementsScreenState extends ConsumerState<MovementsScreen> {
   }
 }
 
+/// Fecha en la que el dinero se movio de verdad.
+///
+/// `actualDate` es obligatoria para marcar algo como realizado, pero la
+/// columna admite nulos, asi que se cae a la prevista antes que romper.
+DateTime _dateOf(Transaction movement) =>
+    movement.actualDate ?? movement.expectedDate;
+
 /// Lista agrupada por mes, con el total de cada uno.
 class _GroupedList extends StatelessWidget {
   const _GroupedList({required this.movements});
@@ -147,10 +155,8 @@ class _GroupedList extends StatelessWidget {
   Widget build(BuildContext context) {
     final byMonth = <DateTime, List<Transaction>>{};
     for (final movement in movements) {
-      final month = DateTime.utc(
-        movement.expectedDate.year,
-        movement.expectedDate.month,
-      );
+      final date = _dateOf(movement);
+      final month = DateTime.utc(date.year, date.month);
       byMonth.putIfAbsent(month, () => []).add(movement);
     }
 
@@ -171,7 +177,7 @@ class _GroupedList extends StatelessWidget {
               child: MovementListTile(
                 movement: movement,
                 mixedDirections: true,
-                quickAction: true,
+                showActualDate: true,
               ),
             ),
           const SizedBox(height: AppTokens.space3),

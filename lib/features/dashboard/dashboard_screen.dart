@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme/app_tokens.dart';
 import '../../core/database/app_database.dart';
-import '../../core/database/enums.dart';
 import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
 import '../../core/widgets/finance_card.dart';
@@ -15,9 +14,11 @@ import '../../data/account_repository.dart';
 import '../../data/forecast_engine.dart';
 import '../../data/goal_repository.dart';
 import '../../data/movement_repository.dart';
+import '../../data/planned_repository.dart';
 import '../../data/recurring_rule_repository.dart';
 import '../../data/salary_repository.dart';
-import '../movements/movement_list_tile.dart';
+import '../../data/savings_reserve.dart';
+import '../movements/planned_list_tile.dart';
 import '../movements/quick_create_dialogs.dart';
 
 /// Inicio: el estado de las finanzas de un vistazo (UI-01).
@@ -39,7 +40,7 @@ class DashboardScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.receipt_long_outlined),
-            tooltip: 'Todos los movimientos',
+            tooltip: 'Historial de movimientos',
             onPressed: () => context.push('/movimientos'),
           ),
           IconButton(
@@ -81,41 +82,31 @@ class _DashboardBody extends ConsumerWidget {
     final rules = ref.watch(allRulesProvider);
     final goals = ref.watch(goalsProvider);
     final salaries = ref.watch(salarySourcesProvider);
-
-    final total =
-        Money.sum(
-          accounts
-              .where((a) => !a.account.isArchived)
-              .map((a) => a.balance ?? 0),
-        ) ??
-        0;
+    final reserve = ref.watch(savingsReserveProvider);
+    final planned = ref.watch(upcomingPlannedProvider);
 
     final rows = movements.value ?? const <Transaction>[];
-    final thisMonth = rows
-        .where(
-          (m) =>
-              !m.expectedDate.isBefore(month) &&
-              m.expectedDate.isBefore(Dates.nextMonthStart(month)),
-        )
-        .toList();
+
+    // Lo que de verdad se ha movido este mes, por su fecha real. Contar
+    // tambien lo pendiente hincharia las dos cifras con dinero que aun no ha
+    // salido ni entrado, y sumaria hasta lo cancelado; lo que falta por
+    // ocurrir esta abajo, en Proximos movimientos.
+    final realised = rows.where((m) {
+      final date = m.actualDate;
+      return m.status.isRealised &&
+          date != null &&
+          !date.isBefore(month) &&
+          date.isBefore(Dates.nextMonthStart(month));
+    }).toList();
 
     final income = Money.sum(
-      thisMonth.where((m) => m.type.isIncome).map((m) => m.amount),
+      realised.where((m) => m.type.isIncome).map((m) => m.amount),
     );
     final expense = Money.sum(
-      thisMonth.where((m) => m.type.isExpense).map((m) => m.amount),
+      realised.where((m) => m.type.isExpense).map((m) => m.amount),
     );
 
-    final upcoming =
-        rows
-            .where(
-              (m) =>
-                  !m.status.isRealised &&
-                  m.status != MovementStatus.cancelado &&
-                  !m.expectedDate.isBefore(Dates.today()),
-            )
-            .toList()
-          ..sort((a, b) => a.expectedDate.compareTo(b.expectedDate));
+    final upcoming = planned.value ?? const <PlannedItem>[];
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -125,7 +116,7 @@ class _DashboardBody extends ConsumerWidget {
         AppTokens.space5,
       ),
       children: [
-        _BalanceCard(total: total, accounts: accounts),
+        _BalanceCard(reserve: reserve, accounts: accounts),
         const SizedBox(height: AppTokens.space3),
         Row(
           children: [
@@ -148,9 +139,9 @@ class _DashboardBody extends ConsumerWidget {
             ),
           ],
         ),
-        if (goals.value?.isNotEmpty ?? false) ...[
+        if (_featuredGoal(goals.value) case final featured?) ...[
           const SizedBox(height: AppTokens.space3),
-          _SavingsCard(goal: goals.value!.first),
+          _SavingsCard(goal: featured),
         ],
         const SizedBox(height: AppTokens.space3),
         _ForecastCard(
@@ -162,34 +153,44 @@ class _DashboardBody extends ConsumerWidget {
         const SizedBox(height: AppTokens.space5),
         SectionHeader(
           'Proximos movimientos',
+          // Lleva al historial, no a «todos los proximos»: esta lista ya son
+          // los proximos, y lo que no cabe aqui esta en Gastos e Ingresos.
           trailing: TextButton(
             onPressed: () => context.push('/movimientos'),
-            child: const Text('Ver todos'),
+            child: const Text('Historial'),
           ),
         ),
         const SizedBox(height: AppTokens.space2),
         if (upcoming.isEmpty)
           const FinanceCard(
             child: Text(
-              'No hay movimientos pendientes.',
+              'No hay nada pendiente ni por repetirse.',
               style: TextStyle(color: AppTokens.textSecondary),
             ),
           )
         else
-          for (final movement in upcoming.take(5))
+          // Gastos e ingresos juntos, y con las repeticiones incluidas: lo
+          // que interesa desde Inicio es todo lo que va a mover dinero, no
+          // solo lo que alguien se acordo de anotar a mano.
+          for (final item in upcoming.take(6))
             Padding(
+              key: ValueKey(item.key),
               padding: const EdgeInsets.only(bottom: AppTokens.space2),
-              child: MovementListTile(
-                movement: movement,
-                mixedDirections: true,
-                // Marcar pagado sin entrar al detalle: es lo que mas veces
-                // se quiere hacer desde aqui.
-                quickAction: true,
-              ),
+              child: PlannedListTile(item: item),
             ),
       ],
     );
   }
+}
+
+/// Objetivo que se ensena en Inicio.
+///
+/// Manda el mensual, porque la tarjeta habla del mes en curso; si no hay
+/// ninguno, el primero por importe. Ensenar el primero por orden alfabetico
+/// era arbitrario.
+GoalProgress? _featuredGoal(List<GoalProgress>? goals) {
+  if (goals == null || goals.isEmpty) return null;
+  return goals.where((g) => g.isMonthly).firstOrNull ?? goals.first;
 }
 
 /// Todas las reglas, para la tarjeta de prevision.
@@ -197,23 +198,32 @@ final allRulesProvider = StreamProvider<List<RecurringRule>>(
   (ref) => ref.watch(recurringRuleRepositoryProvider).watchRules(),
 );
 
+/// Saldo actual, ya descontado lo que esta apartado para ahorrar.
+///
+/// La cifra grande es lo que se puede gastar sin tocar el ahorro; al lado, en
+/// pequeno, cuanto hay apartado. El dinero no se mueve de cuenta: el reparto
+/// es solo de lectura, para que un saldo de 500 con 200 comprometidos no se
+/// lea como 500 disponibles.
 class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({required this.total, required this.accounts});
+  const _BalanceCard({required this.reserve, required this.accounts});
 
-  final int total;
+  final AsyncValue<SavingsReserve> reserve;
   final List<AccountBalance> accounts;
 
   @override
   Widget build(BuildContext context) {
     final unknown = accounts.any((a) => a.balance == null);
+    final split = reserve.value;
+    final hasReserve = split != null && split.reserved > 0;
 
     return FinanceCard(
       accent: true,
       padding: const EdgeInsets.all(AppTokens.space5),
+      onTap: hasReserve ? () => _showReserveSheet(context, split) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeader('Saldo actual'),
+          SectionHeader(hasReserve ? 'Disponible' : 'Saldo actual'),
           const SizedBox(height: AppTokens.space2),
           if (unknown)
             const Text(
@@ -221,17 +231,145 @@ class _BalanceCard extends StatelessWidget {
               style: TextStyle(color: AppTokens.textSecondary),
             )
           else
-            MoneyText(
-              total,
-              style: Theme.of(context).textTheme.displaySmall,
-              color: AppTokens.textPrimary,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Flexible(
+                  child: MoneyText(
+                    split?.available ?? 0,
+                    style: Theme.of(context).textTheme.displaySmall,
+                    color: AppTokens.textPrimary,
+                  ),
+                ),
+                if (hasReserve) ...[
+                  const SizedBox(width: AppTokens.space2),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.savings_outlined,
+                          size: 14,
+                          color: AppTokens.accentBright,
+                        ),
+                        const SizedBox(width: 4),
+                        MoneyText(
+                          split.reserved,
+                          compact: true,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          color: AppTokens.accentBright,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ),
           const SizedBox(height: AppTokens.space2),
           Text(
-            accounts.length == 1
-                ? accounts.first.account.name
-                : '${accounts.length} cuentas',
+            hasReserve
+                ? 'de ${Money.format(split.balance)} en '
+                      '${_accountLabel(accounts)}'
+                : _accountLabel(accounts),
             style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _accountLabel(List<AccountBalance> accounts) =>
+      accounts.length == 1
+      ? accounts.first.account.name
+      : '${accounts.length} cuentas';
+}
+
+/// Desglose del ahorro apartado.
+///
+/// Hace falta porque la cifra grande de Inicio deja de ser el saldo del banco
+/// y eso hay que poder comprobarlo: de que objetivo sale cada euro, y si lo
+/// apartado cubre lo que los objetivos piden.
+void _showReserveSheet(BuildContext context, SavingsReserve reserve) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppTokens.surfaceElevated,
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTokens.space5),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionHeader('Ahorro apartado'),
+            const SizedBox(height: AppTokens.space3),
+            for (final line in reserve.lines)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppTokens.space2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        line.goal.name,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    MoneyText(line.amount, compact: true),
+                  ],
+                ),
+              ),
+            const Divider(color: AppTokens.border),
+            _SheetRow(label: 'Saldo en cuentas', amount: reserve.balance),
+            _SheetRow(label: 'Apartado', amount: reserve.reserved),
+            _SheetRow(
+              label: 'Disponible',
+              amount: reserve.available,
+              emphasis: true,
+            ),
+            if (reserve.missing > 0) ...[
+              const SizedBox(height: AppTokens.space3),
+              Text(
+                'Faltan ${Money.format(reserve.missing)} para tener apartado '
+                'todo lo que piden tus objetivos. El saldo no da para mas, '
+                'asi que lo disponible es cero y lo que gastes sale del '
+                'ahorro.',
+                style: const TextStyle(color: AppTokens.textSecondary),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _SheetRow extends StatelessWidget {
+  const _SheetRow({
+    required this.label,
+    required this.amount,
+    this.emphasis = false,
+  });
+
+  final String label;
+  final int amount;
+  final bool emphasis;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = emphasis
+        ? Theme.of(context).textTheme.titleMedium
+        : Theme.of(context).textTheme.bodyMedium;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: style)),
+          MoneyText(
+            amount,
+            style: style,
+            color: emphasis ? AppTokens.accentBright : null,
           ),
         ],
       ),

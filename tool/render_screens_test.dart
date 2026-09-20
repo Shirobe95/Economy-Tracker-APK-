@@ -68,13 +68,33 @@ void main() {
     final now = DateTime.now();
     DateTime day(int d) => DateTime.utc(now.year, now.month, d);
 
+    // La regla del alquiler se crea antes que su gasto para poder enlazarlos.
+    // Sin enlazar, la ocurrencia de este mes saldria como pendiente al lado
+    // del alquiler ya pagado: el mismo recibo contado dos veces.
+    final reglaAlquiler = await db
+        .into(db.recurringRules)
+        .insert(
+          RecurringRulesCompanion.insert(
+            concept: 'Alquiler',
+            type: MovementType.expense,
+            accountId: account,
+            amount: 85000,
+            currency: 'EUR',
+            frequency: RecurrenceFrequency.monthly,
+            startDate: day(3),
+            categoryId: Value(vivienda),
+            intervalCount: const Value(1),
+          ),
+        );
+
     Future<void> expense(
       String concept,
       int amount,
       int d,
       MovementStatus status,
-      int? categoryId,
-    ) => db
+      int? categoryId, {
+      int? ruleId,
+    }) => db
         .into(db.transactions)
         .insert(
           TransactionsCompanion.insert(
@@ -85,12 +105,20 @@ void main() {
             currency: 'EUR',
             accountId: account,
             categoryId: Value(categoryId),
+            recurringRuleId: Value(ruleId),
             expectedDate: day(d),
             actualDate: Value(status == MovementStatus.pagado ? day(d) : null),
           ),
         );
 
-    await expense('Alquiler', 85000, 3, MovementStatus.pagado, vivienda);
+    await expense(
+      'Alquiler',
+      85000,
+      3,
+      MovementStatus.pagado,
+      vivienda,
+      ruleId: reglaAlquiler,
+    );
     await expense('Spotify', 1199, 12, MovementStatus.pagado, suscripciones);
     await expense('Internet', 3200, 14, MovementStatus.pagado, servicios);
     await expense(
@@ -174,21 +202,6 @@ void main() {
         .into(db.recurringRules)
         .insert(
           RecurringRulesCompanion.insert(
-            concept: 'Alquiler',
-            type: MovementType.expense,
-            accountId: account,
-            amount: 85000,
-            currency: 'EUR',
-            frequency: RecurrenceFrequency.monthly,
-            startDate: day(3),
-            categoryId: Value(vivienda),
-            intervalCount: const Value(1),
-          ),
-        );
-    await db
-        .into(db.recurringRules)
-        .insert(
-          RecurringRulesCompanion.insert(
             concept: 'Nomina',
             type: MovementType.salary,
             accountId: account,
@@ -231,6 +244,9 @@ void main() {
             targetAmount: 20000,
             currency: 'EUR',
             currentAmount: const Value(12000),
+            // Dos meses acumulados, para que la captura de Inicio ensene el
+            // reparto entre disponible y apartado.
+            startMonth: Value(DateTime.utc(now.year, now.month - 1)),
           ),
         );
 

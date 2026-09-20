@@ -6,9 +6,9 @@ status: active
 mode: diario
 owner: compartido
 current_cut: ECON-100 (reconstruccion)
-next_action: Segunda ronda de pruebas de Andy en movil cerrada: saldo, prevision, proyectos por cliente, objetivo mensual, pago rapido de recurrentes y pantalla de Movimientos. Esperando su tercera pasada sobre el APK del 2026-09-14. Ver [[CLAUDE · Reconstrucción completa en repositorio]].
+next_action: Tercera ronda cerrada (2026-09-20): reserva de ahorro sobre el saldo, compromisos previstos con repeticiones, historial solo de lo realizado. Pendiente de Andy: confirmar si los objetivos por importe deben apartar su ahorro declarado (DEC-009). Ver [[CLAUDE · Reconstrucción completa en repositorio]].
 created: 2026-09-05
-updated: 2026-09-14
+updated: 2026-09-20
 ---
 
 # Economy Tracker · Inicio
@@ -103,6 +103,40 @@ Esquema de datos: **v3**. v1→v2 añadió `salary_sources.payment_day`; v2→v3
 (`recurring_rule_id`, `expected_date`), que hace idempotente el pago rápido de
 recurrencias. La migración a v3 deduplica antes de crear el índice, y abrir una
 base más nueva que el binario falla con mensaje explícito en vez de corromper.
+
+## Tercera ronda en dispositivo · 2026-09-20
+
+Andy uso el APK varios dias seguidos. Cuatro peticiones y las correcciones que
+salieron por el camino:
+
+| Lo que pidió | Cómo quedó |
+| --- | --- |
+| Próximos movimientos con gastos, no solo ingresos | la causa no era un filtro: los gastos fijos son reglas y las reglas no crean filas — [[DEC-010 · Compromisos previstos, con repeticiones incluidas]] |
+| Movimientos solo con lo ya hecho | es un historial: solo pagado y cobrado, ordenado por fecha real |
+| El ahorro descontado del saldo, y acumulándose | [[DEC-009 · Reserva de ahorro sobre el saldo]], esquema v4 con `start_month` |
+| Gastos pendientes con los recurrentes incluidos | misma raíz que el primero; «Pendientes» pasó de 225 € a 1.075 € en el fixture |
+
+Correcciones no pedidas, encontradas revisando:
+
+- **`account_repository` seguía usando el disparador prohibido** por
+  [[DEC-008 · Disparador de recarga en streams Drift]]. El commit anterior decía
+  que estaban los dos arreglados y solo lo estaba `project_repository`. Como ya
+  no había dos usuarios del mismo SQL, el fallo no se manifestaba — pero el
+  siguiente repositorio que lo hubiera copiado lo habría resucitado.
+- **Ingresos y Gastos del mes contaban lo cancelado.** Sumaban todo lo que
+  cayera en el mes por fecha prevista, sin mirar el estado. Ahora cuentan solo
+  lo realizado, por fecha real, que es lo mismo que mueve el saldo.
+- **Deshacer un pago rápido de una recurrencia dejaba la ocurrencia muerta.** El
+  borrado lógico conserva la fila, que seguía ocupando su hueco en el índice
+  único de (regla, fecha prevista): esa ocurrencia no se podía volver a marcar
+  nunca más.
+- **El resumen por categoría no cuadraba con ninguna métrica.** Mezclaba pagados
+  y pendientes; ahora cuenta lo pagado y su total coincide con «Pagados».
+
+Esquema de datos: **v4**. v3 → v4 añade `savings_goals.start_month` y fecha los
+objetivos mensuales que ya existían con el mes en que se crearon.
+
+237 tests, analyze y format limpios, APK release compilando en Actions.
 
 ## Roadmap
 

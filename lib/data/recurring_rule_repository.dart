@@ -179,6 +179,23 @@ class RecurringRuleRepository {
               .getSingleOrNull();
 
       if (existing != null) {
+        // Se busca sin filtrar por borrado a proposito: una fila borrada
+        // sigue ocupando su hueco en el indice unico de (regla, fecha
+        // prevista), asi que no se puede crear otra encima. Se revive.
+        if (existing.isDeleted) {
+          await (_db.update(
+            _db.transactions,
+          )..where((t) => t.id.equals(existing.id))).write(
+            TransactionsCompanion(
+              isDeleted: const Value(false),
+              status: Value(MovementRepository.realisedStatusFor(rule.type)),
+              actualDate: Value(Dates.day(actualDate)),
+              amount: Value(amount ?? existing.amount),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
+          return existing.id;
+        }
         if (existing.status.isRealised) return existing.id;
         // Estaba anotada pero sin pagar: se completa en vez de crear otra.
         await MovementRepository(_db).markRealised(existing.id, actualDate);

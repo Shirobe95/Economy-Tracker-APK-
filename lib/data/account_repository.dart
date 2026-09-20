@@ -75,23 +75,29 @@ class AccountRepository {
     // Un `select(accounts).watch()` solo reacciona a cambios en accounts:
     // leer los movimientos dentro del asyncMap no crea ninguna dependencia,
     // y el saldo se quedaba congelado al pagar un gasto.
-    return _db
-        .customSelect('SELECT 1', readsFrom: {_db.accounts, _db.transactions})
-        .watch()
-        .asyncMap((_) async {
-          final accounts = await _db.select(_db.accounts).get();
-          final movements = await (_db.select(
-            _db.transactions,
-          )..where((t) => t.isDeleted.equals(false))).get();
+    //
+    // El disparador es `watchTables`, no un `customSelect` tonto: Drift
+    // cachea los streams por su SQL y dos sitios con el mismo texto acaban
+    // compartiendo stream (DEC-008).
+    return watchTables(_db, [
+      _db.accounts,
+      _db.transactions,
+    ]).asyncMap((_) => _loadBalances());
+  }
 
-          return [
-            for (final account in accounts)
-              AccountBalance(
-                account: account,
-                balance: balanceOf(account, movements),
-              ),
-          ];
-        });
+  Future<List<AccountBalance>> _loadBalances() async {
+    final accounts = await _db.select(_db.accounts).get();
+    final movements = await (_db.select(
+      _db.transactions,
+    )..where((t) => t.isDeleted.equals(false))).get();
+
+    return [
+      for (final account in accounts)
+        AccountBalance(
+          account: account,
+          balance: balanceOf(account, movements),
+        ),
+    ];
   }
 
   /// Categorias activas que admiten el tipo indicado.

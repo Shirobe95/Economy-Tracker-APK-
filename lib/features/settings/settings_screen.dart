@@ -50,8 +50,8 @@ class SettingsScreen extends StatelessWidget {
           ),
           _Entry(
             icon: Icons.receipt_long_outlined,
-            title: 'Todos los movimientos',
-            subtitle: 'Buscar en todo el historial',
+            title: 'Historial de movimientos',
+            subtitle: 'Buscar entre gastos y cobros ya hechos',
             route: '/movimientos',
           ),
           _Entry(

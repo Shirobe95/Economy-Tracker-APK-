@@ -181,6 +181,59 @@ void main() {
     );
   });
 
+  test('deshacer y volver a marcar la misma ocurrencia funciona', () async {
+    final rule = await monthlyRule();
+
+    final first = await rules.settleOccurrence(
+      rule: rule,
+      occurrence: DateTime.utc(2026, 10, 25),
+      actualDate: DateTime.utc(2026, 10, 24),
+    );
+
+    // Deshacer un pago rapido borra la fila de verdad. Con borrado logico,
+    // la fila seguiria ocupando su hueco en el indice unico de (regla, fecha
+    // prevista) y esta segunda vuelta seria imposible.
+    await movements.purge(first);
+
+    final second = await rules.settleOccurrence(
+      rule: rule,
+      occurrence: DateTime.utc(2026, 10, 25),
+      actualDate: DateTime.utc(2026, 10, 26),
+    );
+
+    final row = await movements.watchById(second).first;
+    expect(row, isNotNull);
+    expect(row!.status, MovementStatus.pagado);
+    expect(row.actualDate, DateTime.utc(2026, 10, 26));
+  });
+
+  test(
+    'una ocurrencia borrada logicamente revive al volver a marcarla',
+    () async {
+      final rule = await monthlyRule();
+
+      final id = await rules.settleOccurrence(
+        rule: rule,
+        occurrence: DateTime.utc(2026, 10, 25),
+        actualDate: DateTime.utc(2026, 10, 24),
+      );
+      await movements.delete(id);
+
+      final again = await rules.settleOccurrence(
+        rule: rule,
+        occurrence: DateTime.utc(2026, 10, 25),
+        actualDate: DateTime.utc(2026, 10, 26),
+      );
+
+      // Se reutiliza la misma fila: crear otra chocaria con el indice unico y
+      // dejaria el pago rapido roto para siempre en esa fecha.
+      expect(again, id);
+      final row = await movements.watchById(again).first;
+      expect(row, isNotNull);
+      expect(row!.actualDate, DateTime.utc(2026, 10, 26));
+    },
+  );
+
   test('las ocurrencias ya liquidadas se pueden consultar por fecha', () async {
     final rule = await monthlyRule();
     await rules.settleOccurrence(

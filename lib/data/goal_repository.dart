@@ -99,6 +99,7 @@ class GoalRepository {
     int? currentAmount,
     int? monthlyContribution,
     DateTime? targetDate,
+    DateTime? startMonth,
     String currency = kDefaultCurrency,
   }) {
     final monthly = kind.isMonthly;
@@ -112,6 +113,11 @@ class GoalRepository {
       monthlyContribution: Value(monthly ? null : monthlyContribution),
       targetDate: Value(
         monthly || targetDate == null ? null : Dates.day(targetDate),
+      ),
+      // Solo los mensuales acumulan: en uno por importe un mes de inicio no
+      // significaria nada, porque lo apartado es lo que se declara.
+      startMonth: Value(
+        monthly ? Dates.monthStart(startMonth ?? Dates.today()) : null,
       ),
       currency: Value(currency),
       updatedAt: Value(DateTime.now()),

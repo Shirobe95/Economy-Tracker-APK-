@@ -3,6 +3,7 @@ import 'package:economy_tracker/core/database/app_database.dart';
 import 'package:economy_tracker/core/database/database_provider.dart';
 import 'package:economy_tracker/core/database/enums.dart';
 import 'package:economy_tracker/data/account_repository.dart';
+import 'package:economy_tracker/data/planned_repository.dart';
 import 'package:economy_tracker/data/project_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -17,11 +18,13 @@ void main() {
   late AppDatabase db;
   late AccountRepository accounts;
   late ProjectRepository projects;
+  late PlannedRepository planned;
 
   setUp(() {
     db = openTestDatabase();
     accounts = AccountRepository(db);
     projects = ProjectRepository(db);
+    planned = PlannedRepository(db);
   });
 
   tearDown(() async => db.close());
@@ -120,4 +123,79 @@ void main() {
       expect(balanceEmissions.length, before);
     },
   );
+
+  test('los tres repositorios reaccionan cada uno a lo suyo', () async {
+    // Con tres consumidores el fallo de los streams compartidos seria aun
+    // mas dificil de ver a ojo, asi que se prueba a la vez.
+    final accountId = await accounts.createAccount(
+      name: 'Cuenta',
+      type: AccountType.bank,
+      initialBalance: 100000,
+    );
+    final clientId = await projects.saveClient(name: 'Cliente');
+
+    final window = PlannedWindow(
+      from: DateTime.utc(2026, 9),
+      to: DateTime.utc(2026, 10),
+    );
+
+    final balances = <int?>[];
+    final projectCounts = <int>[];
+    final plannedCounts = <int>[];
+
+    final subs = [
+      accounts.watchBalances().listen(
+        (rows) => balances.add(rows.single.balance),
+      ),
+      projects.watchSummaries().listen(
+        (rows) => projectCounts.add(rows.length),
+      ),
+      planned
+          .watchPlanned(window)
+          .listen((rows) => plannedCounts.add(rows.length)),
+    ];
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    await projects.saveProject(clientId: clientId, name: 'Modulo');
+    await db
+        .into(db.recurringRules)
+        .insert(
+          RecurringRulesCompanion.insert(
+            concept: 'Alquiler',
+            type: MovementType.expense,
+            accountId: accountId,
+            amount: 85000,
+            currency: 'EUR',
+            frequency: RecurrenceFrequency.monthly,
+            startDate: DateTime.utc(2026, 9, 3),
+          ),
+        );
+    await db
+        .into(db.transactions)
+        .insert(
+          TransactionsCompanion.insert(
+            type: MovementType.expense,
+            status: MovementStatus.pagado,
+            concept: 'Compra',
+            amount: 5000,
+            currency: 'EUR',
+            accountId: accountId,
+            expectedDate: DateTime.utc(2026, 9, 10),
+            actualDate: Value(DateTime.utc(2026, 9, 10)),
+          ),
+        );
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+
+    for (final sub in subs) {
+      await sub.cancel();
+    }
+
+    expect(balances.last, 95000, reason: 'el saldo ve su gasto');
+    expect(projectCounts.last, 1, reason: 'los proyectos ven el suyo');
+    expect(
+      plannedCounts.last,
+      1,
+      reason: 'lo previsto ve la regla nueva; el gasto ya esta pagado',
+    );
+  });
 }

@@ -168,6 +168,13 @@ class SavingsGoals extends Table with _Timestamps {
 
   TextColumn get targetDate => text().nullable().map(civilDateConverter)();
 
+  /// Primer mes que cuenta para un objetivo mensual, siempre dia 1.
+  ///
+  /// La reserva acumulada se calcula desde aqui, asi que es un dato de la
+  /// persona y no la fecha en que se creo la fila: alguien puede empezar a
+  /// apuntar en marzo un ahorro que lleva haciendo desde enero.
+  TextColumn get startMonth => text().nullable().map(civilDateConverter)();
+
   BoolColumn get isArchived => boolean().withDefault(const Constant(false))();
 
   @override

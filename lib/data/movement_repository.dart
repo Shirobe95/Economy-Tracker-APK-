@@ -208,6 +208,17 @@ class MovementRepository {
     );
   }
 
+  /// Borrado real, sin dejar fila.
+  ///
+  /// Solo para deshacer una ocurrencia recurrente recien marcada desde un
+  /// listado: esa fila nacio de un toque y deshacerlo no deberia dejar
+  /// historia que conservar. Ademas, el borrado logico no serviria: la fila
+  /// seguiria ocupando su hueco en el indice unico de (regla, fecha
+  /// prevista) y no se podria volver a marcar esa misma ocurrencia.
+  Future<void> purge(int id) {
+    return (_db.delete(_db.transactions)..where((t) => t.id.equals(id))).go();
+  }
+
   /// Borrado logico: sale del listado y del saldo, conserva la historia.
   Future<void> delete(int id) {
     return (_db.update(_db.transactions)..where((t) => t.id.equals(id))).write(

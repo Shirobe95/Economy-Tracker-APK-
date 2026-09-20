@@ -25,6 +25,7 @@ class MovementListTile extends ConsumerWidget {
     this.subtitle,
     this.mixedDirections = false,
     this.quickAction = false,
+    this.showActualDate = false,
   });
 
   final Transaction movement;
@@ -35,6 +36,12 @@ class MovementListTile extends ConsumerWidget {
 
   /// Anade un boton para darlo por pagado o cobrado sin abrir el detalle.
   final bool quickAction;
+
+  /// Usa la fecha real en vez de la prevista.
+  ///
+  /// En un historial interesa cuando se movio el dinero; en un listado de
+  /// pendientes, cuando toca moverlo.
+  final bool showActualDate;
 
   bool get _canSettle =>
       quickAction &&
@@ -97,7 +104,11 @@ class MovementListTile extends ConsumerWidget {
               SizedBox(
                 width: 52,
                 child: Text(
-                  formatDay(movement.expectedDate).substring(0, 6),
+                  formatDay(
+                    showActualDate
+                        ? (movement.actualDate ?? movement.expectedDate)
+                        : movement.expectedDate,
+                  ).substring(0, 6),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),

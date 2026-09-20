@@ -11,3 +11,5 @@ saliendo de la reconstrucción.
 - [[DEC-006 · Importe neto en cobros de proyecto]]
 - [[DEC-007 · Origen de los tokens visuales]]
 - [[DEC-008 · Disparador de recarga en streams Drift]]
+- [[DEC-009 · Reserva de ahorro sobre el saldo]]
+- [[DEC-010 · Compromisos previstos, con repeticiones incluidas]]

@@ -33,10 +33,17 @@ No estaba en este inventario ni tiene mockup aprobado; sale de una petición
 directa de Andy el 2026-09-14 tras probar el APK: *«tenemos que tener visión de
 todos los movimientos desde la pantalla de inicio»*.
 
-Lista completa de movimientos con buscador por concepto, filtros (Todos /
-Pendientes / Gastos / Ingresos) y agrupación por mes con el neto de cada mes en
-la cabecera. Se llega desde tres sitios: el icono de la barra superior de Inicio,
-el enlace «Ver todos» de *Próximos movimientos* y Ajustes.
+**Historial** de movimientos: solo lo pagado y lo cobrado. Buscador por
+concepto, filtros (Todos / Gastos / Ingresos / Transferencias) y agrupación por
+mes con el neto de cada mes en la cabecera. Ordena y agrupa por **fecha real**,
+no prevista: aquí lo que cuenta es cuándo se movió el dinero.
+
+Andy lo acotó así el 2026-09-20 tras usarlo: *«no vamos a poner los que están
+previstos, porque aquí queremos ver los movimientos que hemos hecho solamente»*.
+Lo previsto vive en Inicio y en Gastos, que es donde se actúa sobre ello.
+
+Se llega desde tres sitios: el icono de la barra superior de Inicio, el enlace
+«Historial» de *Próximos movimientos* y Ajustes.
 
 Al no tener mockup, se ha construido reutilizando componentes ya aprobados
 (`FinanceCard`, `SectionHeader`, `MoneyText`, la fila de movimiento de UI-03) en
@@ -45,3 +52,30 @@ Queda **pendiente de revisión visual de Andy**.
 
 UI-01 (Inicio) y UI-03 (Gastos) incorporan además acción rápida de marcar
 pagado/cobrado sobre la propia fila, con «Deshacer» en el aviso posterior.
+
+## Evolución ECON-100 · segunda ronda en dispositivo (2026-09-20)
+
+**UI-01 · Inicio.** La tarjeta de saldo pasa a titularse «Disponible» cuando hay
+ahorro apartado, con lo apartado al lado en pequeño y el saldo total debajo;
+tocarla abre el desglose por objetivo. Ver [[DEC-009 · Reserva de ahorro sobre el saldo]].
+Sin objetivos sigue diciendo «Saldo actual» y enseñando el saldo entero.
+
+Las tarjetas de Ingresos y Gastos del mes cuentan solo lo **realizado**, por su
+fecha real. Antes sumaban también lo pendiente, lo previsto y hasta lo
+cancelado, así que no cuadraban con ninguna otra cifra de la pantalla.
+
+*Próximos movimientos* enseña gastos e ingresos juntos e incluye las
+repeticiones de reglas que aún no se han anotado ([[DEC-010 · Compromisos previstos, con repeticiones incluidas]]).
+
+**UI-03 · Gastos.** Se parte en dos secciones, «Por pagar» y «Pagados». La
+métrica de pendientes incluye las reglas recurrentes del mes. El resumen por
+categoría cuenta solo lo pagado, para que su total cuadre con la cifra de
+«Pagados» de arriba.
+
+**Fila de compromiso previsto.** Componente nuevo, común a Inicio y a Gastos:
+pinta igual un movimiento pendiente y una repetición sin anotar, con etiqueta
+«Recurrente» en el segundo caso, botón de marcar en un toque y borde rojo con
+rótulo «Vencido» cuando la fecha ya pasó.
+
+**UI-12 · Objetivos.** El formulario de un objetivo mensual gana el campo «Desde
+qué mes cuenta», con un texto que dice cuánto lleva pedido a día de hoy.

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/app_tokens.dart';
 import '../../core/database/app_database.dart';
 import '../../core/database/enums.dart';
+import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
 import '../../core/widgets/form_fields.dart';
 import '../../core/widgets/section_header.dart';
@@ -28,6 +29,7 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
 
   SavingsGoalKind _kind = SavingsGoalKind.amount;
   DateTime? _targetDate;
+  DateTime _startMonth = Dates.monthStart(Dates.today());
   bool _saving = false;
   bool _loaded = false;
   String? _error;
@@ -57,6 +59,7 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
           .toStringAsFixed(2);
     }
     _targetDate = goal.targetDate;
+    if (goal.startMonth != null) _startMonth = goal.startMonth!;
   }
 
   Future<void> _save() async {
@@ -90,6 +93,7 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
                 ? null
                 : Money.tryParse(_monthlyContribution.text),
             targetDate: _targetDate,
+            startMonth: _startMonth,
           );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -99,6 +103,18 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
         _error = 'No se ha podido guardar: $error';
       });
     }
+  }
+
+  /// Cuanto pide el objetivo a dia de hoy, contado desde el mes de inicio.
+  String _startMonthHelp() {
+    final target = Money.tryParse(_target.text);
+    final meses =
+        Dates.monthsBetween(_startMonth, Dates.monthStart(Dates.today())) + 1;
+    if (target == null || target <= 0 || meses <= 0) {
+      return 'El mes actual cuenta entero.';
+    }
+    return 'Son $meses ${meses == 1 ? 'mes' : 'meses'}: '
+        '${Money.format(target * meses)} apartados a dia de hoy.';
   }
 
   @override
@@ -160,6 +176,29 @@ class _GoalFormScreenState extends ConsumerState<GoalFormScreen> {
                     : null;
               },
             ),
+            // El mes de inicio decide cuanto lleva acumulado el objetivo, y
+            // esa cifra se descuenta del saldo disponible en Inicio: tiene
+            // que poder corregirse, no salir de cuando se creo la fila.
+            if (_monthly) ...[
+              const SizedBox(height: AppTokens.space4),
+              Text(
+                'Desde que mes cuenta',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+              const SizedBox(height: AppTokens.space2),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: MonthSelector(
+                  month: _startMonth,
+                  onChanged: (value) => setState(() => _startMonth = value),
+                ),
+              ),
+              const SizedBox(height: AppTokens.space2),
+              Text(
+                _startMonthHelp(),
+                style: const TextStyle(color: AppTokens.textSecondary),
+              ),
+            ],
             // Un objetivo mensual no lleva aporte aparte ni fecha de
             // llegada: el objetivo ya es el aporte, y no hay meta final.
             if (!_monthly) ...[

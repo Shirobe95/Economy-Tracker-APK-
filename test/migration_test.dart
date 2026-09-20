@@ -31,6 +31,28 @@ void main() {
     )
   ''';
 
+  /// Esquema v3 de `savings_goals`, ya con tipo pero sin mes de inicio.
+  const savingsGoalsV3 = '''
+    CREATE TABLE "savings_goals" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "created_at" INTEGER NOT NULL DEFAULT (CAST(strftime('%s', CURRENT_TIMESTAMP) AS INTEGER)),
+      "updated_at" INTEGER NOT NULL DEFAULT (CAST(strftime('%s', CURRENT_TIMESTAMP) AS INTEGER)),
+      "name" TEXT NOT NULL,
+      "kind" TEXT NOT NULL DEFAULT 'amount',
+      "target_amount" INTEGER NOT NULL,
+      "current_amount" INTEGER NULL,
+      "monthly_contribution" INTEGER NULL,
+      "currency" TEXT NOT NULL,
+      "target_date" TEXT NULL,
+      "is_archived" INTEGER NOT NULL DEFAULT 0 CHECK ("is_archived" IN (0, 1)),
+      CHECK (currency GLOB '[A-Z][A-Z][A-Z]'),
+      CHECK (kind IN ('amount', 'monthly')),
+      CHECK (target_amount > 0),
+      CHECK (current_amount IS NULL OR current_amount >= 0),
+      CHECK (monthly_contribution IS NULL OR monthly_contribution >= 0)
+    )
+  ''';
+
   /// Esquema v1 de `salary_sources`, tal como se instalo antes de anadir el
   /// dia de cobro.
   const salarySourcesV1 = '''
@@ -83,10 +105,10 @@ void main() {
     return AppDatabase(DatabaseConnection(NativeDatabase(file)));
   }
 
-  test('la version de esquema es 3', () {
+  test('la version de esquema es 4', () {
     final db = AppDatabase(DatabaseConnection(NativeDatabase.memory()));
     addTearDown(db.close);
-    expect(db.schemaVersion, 3);
+    expect(db.schemaVersion, 4);
   });
 
   test('migrar de v1 conserva las nominas ya guardadas', () async {
@@ -137,6 +159,45 @@ void main() {
     // Lo que ya existia es un objetivo por importe: nadie habia pedido otra
     // cosa, asi que ese es el unico valor honesto.
     expect(goals.single.kind, SavingsGoalKind.amount);
+    // Y por eso no lleva mes de inicio: un objetivo por importe no acumula.
+    expect(goals.single.startMonth, isNull);
+  });
+
+  test('migrar de v3 fecha los objetivos mensuales que ya existian', () async {
+    final file = File('${workspace.path}/economy_tracker.sqlite');
+
+    final setup = AppDatabase(DatabaseConnection(NativeDatabase(file)));
+    await setup.customStatement('SELECT 1');
+    await setup.customStatement('DROP TABLE savings_goals');
+    await setup.customStatement(savingsGoalsV3);
+    // Creado en marzo de 2026: 1772582400 son las 00:00 UTC del 2026-03-04.
+    await setup.customStatement(
+      "INSERT INTO savings_goals "
+      "(created_at, updated_at, name, kind, target_amount, currency) "
+      "VALUES (1772582400, 1772582400, 'Ahorro del mes', 'monthly', 20000, 'EUR')",
+    );
+    await setup.customStatement(
+      "INSERT INTO savings_goals "
+      "(created_at, updated_at, name, kind, target_amount, currency) "
+      "VALUES (1772582400, 1772582400, 'Viaje', 'amount', 150000, 'EUR')",
+    );
+    await setup.customStatement('PRAGMA user_version = 3');
+    await setup.close();
+
+    final db = AppDatabase(DatabaseConnection(NativeDatabase(file)));
+    addTearDown(db.close);
+
+    final goals = await (db.select(
+      db.savingsGoals,
+    )..orderBy([(g) => OrderingTerm.asc(g.name)])).get();
+
+    final mensual = goals.firstWhere((g) => g.kind.isMonthly);
+    // El mes en que se creo, no el dia: la reserva cuenta por meses enteros.
+    expect(mensual.startMonth, DateTime.utc(2026, 3));
+
+    // El de importe se queda sin fecha: no hay nada que acumular.
+    final porImporte = goals.firstWhere((g) => !g.kind.isMonthly);
+    expect(porImporte.startMonth, isNull);
   });
 
   test('la base migrada impide duplicar una ocurrencia recurrente', () async {
