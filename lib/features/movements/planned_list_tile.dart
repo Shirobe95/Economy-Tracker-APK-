@@ -99,7 +99,9 @@ class PlannedListTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isIncome = item.type.isIncome;
     final overdue = item.isOverdue(Dates.today());
-    final signed = isIncome ? item.amount : -item.amount;
+    // Una transferencia no entra ni sale del patrimonio: va sin signo.
+    final withSign = mixedDirections && !item.type.isTransfer;
+    final signedAmount = isIncome ? item.amount : -item.amount;
 
     return Material(
       color: AppTokens.surface,
@@ -168,9 +170,9 @@ class PlannedListTile extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   MoneyText(
-                    mixedDirections ? signed : item.amount,
+                    withSign ? signedAmount : item.amount,
                     currency: item.currency,
-                    signed: mixedDirections,
+                    signed: withSign,
                   ),
                   const SizedBox(height: 2),
                   _StatusLine(item: item, overdue: overdue),

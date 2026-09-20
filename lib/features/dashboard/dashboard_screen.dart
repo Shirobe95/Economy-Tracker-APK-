@@ -210,11 +210,22 @@ class _BalanceCard extends StatelessWidget {
   final AsyncValue<SavingsReserve> reserve;
   final List<AccountBalance> accounts;
 
+  /// Saldo total de las cuentas vivas.
+  int get _total =>
+      Money.sum(
+        accounts.where((a) => !a.account.isArchived).map((a) => a.balance ?? 0),
+      ) ??
+      0;
+
   @override
   Widget build(BuildContext context) {
     final unknown = accounts.any((a) => a.balance == null);
     final split = reserve.value;
     final hasReserve = split != null && split.reserved > 0;
+    // Mientras se cargan los objetivos no hay reparto todavia. Ensenar un
+    // cero seria peor que ensenar el saldo entero: se leeria como no tener
+    // dinero, que es lo contrario de no saberlo aun.
+    final shown = split?.available ?? _total;
 
     return FinanceCard(
       accent: true,
@@ -236,7 +247,7 @@ class _BalanceCard extends StatelessWidget {
               children: [
                 Flexible(
                   child: MoneyText(
-                    split?.available ?? 0,
+                    shown,
                     style: Theme.of(context).textTheme.displaySmall,
                     color: AppTokens.textPrimary,
                   ),

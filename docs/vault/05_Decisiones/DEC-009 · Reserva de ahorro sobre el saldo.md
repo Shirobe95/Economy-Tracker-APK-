@@ -48,16 +48,20 @@ Un saldo en numeros rojos es la excepcion: ahi lo disponible sigue siendo el
 saldo real, negativo. Esconder un descubierto detras de un cero seria mentir en
 la cifra mas visible de la aplicacion.
 
-## Decision de alcance que Andy no pidio expresamente
+## Los objetivos por importe tambien apartan
 
-Andy describio solo el caso mensual. Se ha incluido tambien el ahorro
+Andy describio solo el caso mensual, y se propuso incluir tambien el ahorro
 **declarado** de los objetivos por importe, porque es literalmente lo mismo:
 dinero que esta en la cuenta y ya tiene destino. Un fondo de emergencia con
 3.250 declarados aparta esos 3.250.
 
-Queda **pendiente de su confirmacion**. Si prefiere que solo aparten los
-objetivos mensuales, es una linea en `SavingsReserve.of`: devolver `0` en la
-rama de `SavingsGoalKind.amount` en vez de `currentAmount`.
+**Confirmado por Andy el 2026-09-20**: *«al ahorro anadimos tambien el
+declarado de los objetivos»*. Queda cerrado, no es ya una propuesta.
+
+Ojo a la consecuencia: un objetivo por importe aparta lo que la persona
+**declara** tener ahorrado, asi que subir esa cifra baja lo disponible en el
+acto. Es lo correcto —ese dinero ya tiene dueno— pero explica una bajada
+repentina del disponible que si no se veria como un fallo.
 
 ## El mes de inicio es un dato, no un timestamp
 

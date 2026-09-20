@@ -137,6 +137,47 @@ void main() {
     expect(find.text('Recurrente'), findsWidgets);
   });
 
+  appTest('una transferencia se ensena sin signo en el historial', (
+    tester,
+    db,
+  ) async {
+    final origen = await seedAccount(db);
+    final destino = await db
+        .into(db.accounts)
+        .insert(
+          AccountsCompanion.insert(
+            name: 'Ahorro',
+            type: AccountType.savings,
+            currency: 'EUR',
+          ),
+        );
+    final today = Dates.today();
+
+    await db
+        .into(db.transactions)
+        .insert(
+          TransactionsCompanion.insert(
+            type: MovementType.transfer,
+            status: MovementStatus.pagado,
+            concept: 'Paso a ahorro',
+            amount: 10000,
+            currency: 'EUR',
+            accountId: origen,
+            destinationAccountId: Value(destino),
+            expectedDate: today,
+            actualDate: Value(today),
+          ),
+        );
+    await tester.pumpAndSettle();
+    await scrollToEnd(tester);
+    await tapText(tester, 'Historial');
+
+    // Mover dinero propio entre cuentas no es un gasto: con signo y en rojo
+    // se leeria como si se hubieran perdido 100 €.
+    expect(find.text('100,00 €'), findsOneWidget);
+    expect(find.text('−100,00 €'), findsNothing);
+  });
+
   appTest('el historial deja fuera lo que todavia no ha ocurrido', (
     tester,
     db,

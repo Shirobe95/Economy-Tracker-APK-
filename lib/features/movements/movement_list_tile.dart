@@ -85,6 +85,10 @@ class MovementListTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isIncome = movement.type.isIncome;
+    // Una transferencia mueve dinero propio entre cuentas: no entra ni sale
+    // del patrimonio, asi que pintarla en rojo con un menos delante seria
+    // contarla como un gasto que no es.
+    final signed = mixedDirections && !movement.type.isTransfer;
     final signedAmount = isIncome ? movement.amount : -movement.amount;
 
     return Material(
@@ -145,9 +149,9 @@ class MovementListTile extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   MoneyText(
-                    mixedDirections ? signedAmount : movement.amount,
+                    signed ? signedAmount : movement.amount,
                     currency: movement.currency,
-                    signed: mixedDirections,
+                    signed: signed,
                   ),
                   const SizedBox(height: 2),
                   Row(
