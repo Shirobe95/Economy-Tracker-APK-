@@ -6,6 +6,7 @@ import '../../app/theme/app_tokens.dart';
 import '../../core/widgets/finance_card.dart';
 import '../../core/widgets/section_header.dart';
 import '../../data/app_lock_service.dart';
+import '../../data/biometric_service.dart';
 
 /// Ajustes de bloqueo local.
 class SecuritySettingsScreen extends ConsumerWidget {
@@ -79,6 +80,14 @@ class SecuritySettingsScreen extends ConsumerWidget {
                 icon: const Icon(Icons.lock_outline),
                 label: const Text('Activar bloqueo con PIN'),
               ),
+            // La huella solo tiene sentido con un PIN detras: es un atajo
+            // para no teclearlo, no un secreto aparte.
+            if (isEnabled) ...[
+              const SizedBox(height: AppTokens.space5),
+              const SectionHeader('Huella'),
+              const SizedBox(height: AppTokens.space2),
+              const _BiometricCard(),
+            ],
             const SizedBox(height: AppTokens.space5),
             const SectionHeader('Que protege y que no'),
             const SizedBox(height: AppTokens.space2),
@@ -106,13 +115,6 @@ class SecuritySettingsScreen extends ConsumerWidget {
                     style: TextStyle(color: AppTokens.pending),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: AppTokens.space4),
-            const FinanceCard(
-              child: Text(
-                'El desbloqueo por huella todavia no esta implementado.',
-                style: TextStyle(color: AppTokens.textMuted),
               ),
             ),
           ],
@@ -191,11 +193,6 @@ class SecuritySettingsScreen extends ConsumerWidget {
     );
   }
 
-  static void _toast(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
-  }
-
   Future<String?> _askPin(
     BuildContext context, {
     required String title,
@@ -244,5 +241,104 @@ class SecuritySettingsScreen extends ConsumerWidget {
         ],
       ),
     ).whenComplete(controller.dispose);
+  }
+}
+
+void _toast(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+}
+
+/// Interruptor de desbloqueo por huella.
+///
+/// Solo aparece con el PIN puesto. Si el movil no admite huella, en vez de
+/// esconder la opcion se dice por que: buscarla y no encontrarla es peor que
+/// leer que este telefono no la tiene.
+class _BiometricCard extends ConsumerWidget {
+  const _BiometricCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final service = ref.watch(biometricServiceProvider);
+
+    return FutureBuilder<BiometricUnavailable?>(
+      future: service.unavailableReason(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData &&
+            snapshot.connectionState != ConnectionState.done) {
+          return const FinanceCard(child: LinearProgressIndicator());
+        }
+
+        final reason = snapshot.data;
+        if (reason != null) {
+          return FinanceCard(
+            child: Row(
+              children: [
+                const RoundIcon(Icons.fingerprint, color: AppTokens.textMuted),
+                const SizedBox(width: AppTokens.space4),
+                Expanded(
+                  child: Text(
+                    reason.message,
+                    style: const TextStyle(color: AppTokens.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final enabled = ref.watch(biometricEnabledProvider).value ?? false;
+
+        return FinanceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  RoundIcon(
+                    Icons.fingerprint,
+                    color: enabled ? AppTokens.positive : AppTokens.textMuted,
+                  ),
+                  const SizedBox(width: AppTokens.space4),
+                  Expanded(
+                    child: Text(
+                      'Desbloquear con huella',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  Switch(
+                    value: enabled,
+                    onChanged: (value) => _toggle(context, ref, value),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppTokens.space3),
+              const Text(
+                'El PIN sigue funcionando siempre. La huella solo te ahorra '
+                'teclearlo: si el sensor falla, entras igual con el PIN.',
+                style: TextStyle(color: AppTokens.textSecondary),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _toggle(BuildContext context, WidgetRef ref, bool value) async {
+    final result = await ref.read(biometricServiceProvider).setEnabled(value);
+    ref.invalidate(biometricEnabledProvider);
+    if (!context.mounted) return;
+
+    switch (result) {
+      case BiometricSuccess():
+        _toast(
+          context,
+          value ? 'Desbloqueo por huella activado.' : 'Huella desactivada.',
+        );
+      case BiometricCancelled():
+        break;
+      case BiometricFailure(:final message):
+        _toast(context, message);
+    }
   }
 }

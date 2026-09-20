@@ -138,6 +138,22 @@ objetivos mensuales que ya existían con el mes en que se crearon.
 
 237 tests, analyze y format limpios, APK release compilando en Actions.
 
+## Cuarta ronda · 2026-09-20 (tarde)
+
+Andy restauró su copia en el APK nuevo y salieron dos cosas, más lo que
+quedaba pendiente:
+
+- **Los acentos se rompían al importar.** `String.fromCharCodes` lee cada byte
+  como un carácter: Latin-1, no UTF-8. «Suscripción» entraba como
+  «SuscripciÃ³n». Corregido en [[DEC-012 · La copia se guarda como archivo, no solo se comparte]].
+- **Compartir por mensajería mutilaba el archivo.** WhatsApp le devolvió la
+  copia como `DOC-20260920-WA0018._`, sin extensión y sin poder restaurarla.
+  Ahora hay «Guardar copia en el móvil» como acción principal. Misma nota.
+- **Huella**, que Andy pidió expresamente: [[DEC-011 · Huella como atajo del PIN]].
+  Acompaña al PIN, no lo sustituye, y esa diferencia es deliberada.
+
+259 tests, analyze y format limpios.
+
 ## Roadmap
 
 - [[ECON-000A · Producto UX Arquitectura]] — completed
@@ -150,7 +166,7 @@ objetivos mensuales que ya existían con el mes en que se crearon.
 - [[ECON-000H · Objetivos de ahorro]] — completed (por importe y mensual)
 - [[ECON-000I · Calendario financiero]] — completed
 - [[ECON-000J · Informes y análisis]] — completed
-- [[ECON-000K · Seguridad backup y release Android]] — completed (sin huella ni cifrado en reposo)
+- [[ECON-000K · Seguridad backup y release Android]] — completed (con huella desde el 2026-09-20; sigue sin cifrado en reposo)
 
 ## Enlaces clave
 

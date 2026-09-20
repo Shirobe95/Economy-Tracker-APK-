@@ -389,4 +389,69 @@ void main() {
       expect(() => backup.preview(futura), throwsA(isA<BackupError>()));
     });
   });
+
+  group('acentos y codificacion', () {
+    test('un archivo UTF-8 conserva los acentos', () {
+      const texto = '{"concepto": "Suscripción", "cliente": "Futón Espai"}';
+      final bytes = utf8.encode(texto);
+
+      expect(BackupService.decodeBytes(bytes), texto);
+    });
+
+    test('leer los bytes como caracteres es lo que rompia los acentos', () {
+      // El fallo que reporto Andy: «Suscripción» llegaba como «SuscripciÃ³n».
+      // Se deja escrito para que quede claro que no es una suposicion.
+      final bytes = utf8.encode('Suscripción');
+
+      expect(String.fromCharCodes(bytes), 'SuscripciÃ³n');
+      expect(BackupService.decodeBytes(bytes), 'Suscripción');
+    });
+
+    test('se ignora el BOM que anaden algunos editores', () {
+      const texto = '{"a": 1}';
+      final bytes = [0xEF, 0xBB, 0xBF, ...utf8.encode(texto)];
+
+      expect(BackupService.decodeBytes(bytes), texto);
+    });
+
+    test('un archivo que no es UTF-8 lo dice en vez de meter basura', () {
+      // 0xFF no es una secuencia UTF-8 valida en ninguna posicion.
+      expect(
+        () => BackupService.decodeBytes([0x7B, 0xFF, 0x7D]),
+        throwsA(
+          isA<BackupError>().having(
+            (e) => e.message,
+            'mensaje',
+            contains('UTF-8'),
+          ),
+        ),
+      );
+    });
+
+    test('una copia real con acentos se restaura intacta', () async {
+      await db
+          .into(db.clients)
+          .insert(ClientsCompanion.insert(name: 'Futón Espai'));
+      await db
+          .into(db.categories)
+          .insert(
+            CategoriesCompanion.insert(
+              name: 'Suscripción',
+              kind: CategoryKind.expense,
+            ),
+          );
+
+      // Se exporta, se pasa por bytes como hace el selector de archivos, y se
+      // vuelve a entrar: es el viaje completo que hace el archivo de verdad.
+      final exported = await backup.export();
+      final bytes = utf8.encode(exported);
+      await backup.restore(BackupService.decodeBytes(bytes));
+
+      final clients = await db.select(db.clients).get();
+      final categories = await db.select(db.categories).get();
+
+      expect(clients.single.name, 'Futón Espai');
+      expect(categories.map((c) => c.name), contains('Suscripción'));
+    });
+  });
 }

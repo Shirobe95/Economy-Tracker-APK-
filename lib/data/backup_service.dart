@@ -87,6 +87,34 @@ class BackupService {
     });
   }
 
+  /// Texto de un archivo de copia leido como bytes.
+  ///
+  /// Las copias se escriben siempre en UTF-8, que es lo que hace
+  /// `writeAsString`. Hay que decodificarlas igual: `String.fromCharCodes`
+  /// trata cada byte como un caracter, o sea Latin-1, y convierte la «o» de
+  /// «Suscripcion» —dos bytes, `C3 B3`— en dos caracteres de basura.
+  ///
+  /// Se quita el BOM si lo hay: algunos editores de Windows lo anaden al
+  /// guardar, y `jsonDecode` no admite nada delante de la llave inicial.
+  static String decodeBytes(List<int> bytes) {
+    var data = bytes;
+    if (data.length >= 3 &&
+        data[0] == 0xEF &&
+        data[1] == 0xBB &&
+        data[2] == 0xBF) {
+      data = data.sublist(3);
+    }
+
+    try {
+      return utf8.decode(data);
+    } on FormatException {
+      throw const BackupError(
+        'El archivo no esta en UTF-8. Si lo has editado a mano, guardalo de '
+        'nuevo con esa codificacion.',
+      );
+    }
+  }
+
   /// Lee un archivo de copia sin aplicarlo.
   ///
   /// Sirve para enseñar qué hay dentro antes de sustituir nada: una

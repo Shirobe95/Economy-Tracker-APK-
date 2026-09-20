@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/app_tokens.dart';
 import '../../core/widgets/section_header.dart';
 import '../../data/app_lock_service.dart';
+import '../../data/biometric_service.dart';
 
 /// Pantalla de desbloqueo por PIN.
 ///
@@ -25,11 +26,47 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   bool _checking = false;
   String? _error;
   int _failures = 0;
+  bool _biometricTried = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Se pide la huella nada mas abrir: es el camino normal, y tener que
+    // pulsar un boton antes para que salga el dialogo del sistema sobra.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tryBiometric());
+  }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Ofrece la huella, si esta activada.
+  ///
+  /// Un fallo aqui nunca cierra la puerta: se cae al PIN, que es el secreto
+  /// de verdad. Cancelar no dice nada; solo se cuenta lo que la persona
+  /// tendria que arreglar en los ajustes de Android.
+  Future<void> _tryBiometric({bool manual = false}) async {
+    if (_biometricTried && !manual) return;
+    _biometricTried = true;
+
+    final service = ref.read(biometricServiceProvider);
+    if (!await service.isEnabled()) return;
+
+    final result = await service.authenticate(
+      reason: 'Desbloquea Economy Tracker',
+    );
+    if (!mounted) return;
+
+    switch (result) {
+      case BiometricSuccess():
+        widget.onUnlocked();
+      case BiometricCancelled():
+        break;
+      case BiometricFailure(:final message):
+        setState(() => _error = message);
+    }
   }
 
   Future<void> _unlock() async {
@@ -85,7 +122,10 @@ class _LockScreenState extends ConsumerState<LockScreen> {
               const SizedBox(height: AppTokens.space6),
               TextField(
                 controller: _controller,
-                autofocus: true,
+                // Sin foco automatico cuando hay huella: el teclado tapando
+                // el dialogo del sistema es peor que un toque de mas.
+                autofocus:
+                    !(ref.watch(biometricEnabledProvider).value ?? false),
                 obscureText: true,
                 enabled: !_checking,
                 keyboardType: TextInputType.number,
@@ -116,6 +156,17 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                       )
                     : const Text('Desbloquear'),
               ),
+              // Por si el dialogo automatico se cancelo sin querer.
+              if (ref.watch(biometricEnabledProvider).value ?? false) ...[
+                const SizedBox(height: AppTokens.space3),
+                TextButton.icon(
+                  onPressed: _checking
+                      ? null
+                      : () => _tryBiometric(manual: true),
+                  icon: const Icon(Icons.fingerprint),
+                  label: const Text('Usar huella'),
+                ),
+              ],
               if (_failures >= 3) ...[
                 const SizedBox(height: AppTokens.space5),
                 Container(

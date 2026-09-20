@@ -13,3 +13,5 @@ saliendo de la reconstrucción.
 - [[DEC-008 · Disparador de recarga en streams Drift]]
 - [[DEC-009 · Reserva de ahorro sobre el saldo]]
 - [[DEC-010 · Compromisos previstos, con repeticiones incluidas]]
+- [[DEC-011 · Huella como atajo del PIN]]
+- [[DEC-012 · La copia se guarda como archivo, no solo se comparte]]

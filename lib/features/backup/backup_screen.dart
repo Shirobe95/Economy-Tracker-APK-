@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -35,6 +37,62 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     });
   }
 
+  /// Nombre del archivo del dia, con extension.
+  ///
+  /// La extension importa mas de lo que parece: compartir por mensajeria
+  /// puede devolver el archivo renombrado y sin ella, y entonces ni el
+  /// selector de archivos ni la propia aplicacion lo reconocen como copia.
+  String get _fileName {
+    final today = Dates.today();
+    final stamp =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-'
+        '${today.day.toString().padLeft(2, '0')}';
+    return 'economy-tracker-$stamp.json';
+  }
+
+  /// Guarda la copia donde diga la persona, sin pasar por compartir.
+  ///
+  /// Es la via segura: el archivo queda en el movil con su nombre y su
+  /// extension, y se puede volver a elegir para restaurar. Compartir por
+  /// mensajeria es comodo pero puede devolver el archivo mutilado.
+  Future<void> _save() async {
+    if (_working) return;
+    setState(() {
+      _working = true;
+      _message = null;
+    });
+
+    try {
+      final content = await ref.read(backupServiceProvider).export();
+      // UTF-8 explicito, que es lo que espera el restaurador.
+      final bytes = Uint8List.fromList(utf8.encode(content));
+
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Guardar copia de Economy Tracker',
+        fileName: _fileName,
+        type: FileType.any,
+        bytes: bytes,
+      );
+
+      if (path == null) {
+        _report('Guardado cancelado.');
+        return;
+      }
+
+      // En Android, saveFile ya escribe los bytes. En otras plataformas
+      // devuelve la ruta y hay que escribirlos: comprobarlo evita dejar un
+      // archivo vacio sin que nadie se entere.
+      final file = File(path);
+      if (!file.existsSync() || file.lengthSync() == 0) {
+        await file.writeAsBytes(bytes);
+      }
+
+      _report('Copia guardada como $_fileName.');
+    } catch (error) {
+      _report('No se ha podido guardar: $error', isError: true);
+    }
+  }
+
   Future<void> _export() async {
     if (_working) return;
     setState(() {
@@ -44,23 +102,19 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
     try {
       final content = await ref.read(backupServiceProvider).export();
-      final today = Dates.today();
-      final stamp =
-          '${today.year}-${today.month.toString().padLeft(2, '0')}-'
-          '${today.day.toString().padLeft(2, '0')}';
 
       final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/economy-tracker-$stamp.json');
+      final file = File('${directory.path}/$_fileName');
       await file.writeAsString(content);
 
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path)],
-          fileNameOverrides: ['economy-tracker-$stamp.json'],
+          fileNameOverrides: [_fileName],
           subject: 'Copia de Economy Tracker',
         ),
       );
-      _report('Copia generada. Guardala donde no dependa de este movil.');
+      _report('Copia compartida. Comprueba que llega con su nombre entero.');
     } catch (error) {
       _report('No se ha podido exportar: $error', isError: true);
     }
@@ -77,9 +131,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       if (picked == null || picked.files.isEmpty) return;
 
       final file = picked.files.single;
+      // `readAsString` ya decodifica UTF-8; los bytes en memoria hay que
+      // decodificarlos a mano, y ahi estaba el fallo de los acentos.
       final content = file.bytes != null
-          ? String.fromCharCodes(file.bytes!)
-          : await File(file.path!).readAsString();
+          ? BackupService.decodeBytes(file.bytes!)
+          : BackupService.decodeBytes(await File(file.path!).readAsBytes());
 
       final service = ref.read(backupServiceProvider);
       final preview = service.preview(content);
@@ -207,9 +263,15 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           ),
           const SizedBox(height: AppTokens.space5),
           FilledButton.icon(
+            onPressed: _working ? null : _save,
+            icon: const Icon(Icons.download_outlined),
+            label: const Text('Guardar copia en el movil'),
+          ),
+          const SizedBox(height: AppTokens.space3),
+          OutlinedButton.icon(
             onPressed: _working ? null : _export,
             icon: const Icon(Icons.ios_share_outlined),
-            label: const Text('Exportar copia'),
+            label: const Text('Compartir copia'),
           ),
           const SizedBox(height: AppTokens.space3),
           OutlinedButton.icon(
@@ -265,6 +327,15 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   'No esta cifrado: cualquiera que abra el archivo vera tus '
                   'finanzas. Guardalo donde guardarias un extracto bancario.',
                   style: TextStyle(color: AppTokens.pending),
+                ),
+                SizedBox(height: AppTokens.space3),
+                Text(
+                  'Si la compartes por mensajeria, comprueba que el archivo '
+                  'llega terminado en .json. Algunas aplicaciones lo renombran '
+                  'y le quitan la extension, y entonces no se puede volver a '
+                  'elegir para restaurar. Guardarla en el movil no tiene ese '
+                  'problema.',
+                  style: TextStyle(color: AppTokens.textMuted),
                 ),
               ],
             ),
