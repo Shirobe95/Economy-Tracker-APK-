@@ -75,6 +75,13 @@ el mes en que se crearon, que es lo que se venia suponiendo.
 Sin mes de inicio, la reserva cuenta solo el mes corriente. Es preferible
 quedarse corto a inventar meses de ahorro que quiza no ocurrieron.
 
+**Restaurar una copia no pasa por la migracion.** Las migraciones corren sobre
+el archivo de la base, no sobre las filas que entran por el restaurador. Una
+copia exportada con el APK v3 mete objetivos mensuales sin `start_month`, y la
+reserva contaria un mes en vez de acumular: cifra mal, y en silencio.
+`BackupService` rellena esa columna despues de insertar, con la misma regla que
+la migracion. Probado en `test/backup_service_test.dart`.
+
 ## Que NO cambia
 
 Esto no contradice [[DEC-003 · Modelo financiero y ahorro]]: **sobrar sigue sin

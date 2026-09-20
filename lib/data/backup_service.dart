@@ -133,7 +133,29 @@ class BackupService {
           await _insertRow(table, name, row as Map<String, dynamic>);
         }
       }
+
+      await _completeOlderRows();
     });
+  }
+
+  /// Rellena lo que una copia antigua no podia traer.
+  ///
+  /// Restaurar no pasa por [MigrationStrategy]: las migraciones corren sobre
+  /// el archivo de la base, no sobre las filas que entran por aqui. Una copia
+  /// de un esquema anterior mete filas validas pero incompletas, y las
+  /// columnas que faltan se quedan en NULL sin que nadie avise.
+  ///
+  /// Hasta ahora eso solo afecta a `savings_goals.start_month` (v4): un
+  /// objetivo mensual sin mes de inicio hace que la reserva de ahorro cuente
+  /// un solo mes en vez de acumular, asi que la cifra de Inicio saldria mal
+  /// y en silencio. Se rellena con el mes en que se creo el objetivo, que es
+  /// exactamente lo que hace la migracion v3 -> v4.
+  Future<void> _completeOlderRows() async {
+    await _db.customStatement('''
+      UPDATE savings_goals
+      SET start_month = strftime('%Y-%m-01', created_at, 'unixepoch')
+      WHERE kind = 'monthly' AND start_month IS NULL
+    ''');
   }
 
   Map<String, dynamic> _decode(String content) {

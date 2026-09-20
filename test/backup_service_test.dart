@@ -274,4 +274,119 @@ void main() {
       expect(amounts, [35000, 85000]);
     });
   });
+
+  group('copias de versiones anteriores', () {
+    /// Copia tal como la exportaba el APK de esquema v3: `savings_goals` sin
+    /// `start_month`, porque esa columna todavia no existia.
+    String copiaV3() => jsonEncode({
+      'format': 'economy_tracker_backup',
+      'formatVersion': 1,
+      'schemaVersion': 3,
+      'exportedAt': '2026-09-18T10:00:00.000Z',
+      'data': {
+        'accounts': [
+          {
+            'id': 1,
+            'created_at': 1758000000,
+            'updated_at': 1758000000,
+            'name': 'Cuenta principal',
+            'type': 'bank',
+            'currency': 'EUR',
+            'initial_balance': 432000,
+            'is_archived': 0,
+          },
+        ],
+        'categories': <Object?>[],
+        'clients': <Object?>[],
+        'projects': <Object?>[],
+        'salary_sources': <Object?>[],
+        'savings_goals': [
+          {
+            'id': 1,
+            // Creado en julio de 2026: 1782864000 son las 00:00 UTC del dia 1.
+            'created_at': 1782864000,
+            'updated_at': 1782864000,
+            'name': 'Ahorro del mes',
+            'kind': 'monthly',
+            'target_amount': 20000,
+            'current_amount': null,
+            'monthly_contribution': null,
+            'currency': 'EUR',
+            'target_date': null,
+            'is_archived': 0,
+          },
+          {
+            'id': 2,
+            'created_at': 1782864000,
+            'updated_at': 1782864000,
+            'name': 'Fondo de emergencia',
+            'kind': 'amount',
+            'target_amount': 600000,
+            'current_amount': 325000,
+            'monthly_contribution': 50000,
+            'currency': 'EUR',
+            'target_date': null,
+            'is_archived': 0,
+          },
+        ],
+        'recurring_rules': <Object?>[],
+        'transactions': <Object?>[],
+      },
+    });
+
+    test('una copia v3 se restaura tal cual en la aplicacion v4', () async {
+      await backup.restore(copiaV3());
+
+      final accounts = await db.select(db.accounts).get();
+      expect(accounts.single.name, 'Cuenta principal');
+      expect(accounts.single.initialBalance, 432000);
+
+      final goals = await db.select(db.savingsGoals).get();
+      expect(goals, hasLength(2));
+    });
+
+    test('la vista previa no falla con una copia mas antigua', () {
+      final preview = backup.preview(copiaV3());
+
+      expect(preview.schemaVersion, 3);
+      expect(preview.counts['savings_goals'], 2);
+      expect(preview.totalRows, 3);
+    });
+
+    test('los objetivos mensuales recuperan su mes de inicio', () async {
+      await backup.restore(copiaV3());
+
+      final mensual = await (db.select(
+        db.savingsGoals,
+      )..where((g) => g.kind.equalsValue(SavingsGoalKind.monthly))).getSingle();
+
+      // Sin esto, la reserva de ahorro contaria un solo mes en vez de
+      // acumular desde julio: la cifra de Inicio saldria mal y en silencio.
+      // Es lo mismo que hace la migracion v3 -> v4 sobre una base en disco.
+      expect(mensual.startMonth, DateTime.utc(2026, 7));
+    });
+
+    test('un objetivo por importe no gana mes de inicio', () async {
+      await backup.restore(copiaV3());
+
+      final porImporte = await (db.select(
+        db.savingsGoals,
+      )..where((g) => g.kind.equalsValue(SavingsGoalKind.amount))).getSingle();
+
+      // No acumula: un mes de inicio ahi no significaria nada.
+      expect(porImporte.startMonth, isNull);
+    });
+
+    test('una copia mas nueva que la aplicacion se rechaza', () {
+      final futura = jsonEncode({
+        'format': 'economy_tracker_backup',
+        'formatVersion': 1,
+        'schemaVersion': 99,
+        'exportedAt': '2027-01-01T00:00:00.000Z',
+        'data': {'accounts': <Object?>[]},
+      });
+
+      expect(() => backup.preview(futura), throwsA(isA<BackupError>()));
+    });
+  });
 }
