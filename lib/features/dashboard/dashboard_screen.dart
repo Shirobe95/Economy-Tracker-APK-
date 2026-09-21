@@ -6,6 +6,7 @@ import '../../app/theme/app_tokens.dart';
 import '../../core/database/app_database.dart';
 import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
+import '../../core/widgets/fade_in.dart';
 import '../../core/widgets/finance_card.dart';
 import '../../core/widgets/form_fields.dart';
 import '../../core/widgets/money_text.dart';
@@ -172,11 +173,14 @@ class _DashboardBody extends ConsumerWidget {
           // Gastos e ingresos juntos, y con las repeticiones incluidas: lo
           // que interesa desde Inicio es todo lo que va a mover dinero, no
           // solo lo que alguien se acordo de anotar a mano.
-          for (final item in upcoming.take(6))
+          for (final (index, item) in upcoming.take(6).indexed)
             Padding(
               key: ValueKey(item.key),
               padding: const EdgeInsets.only(bottom: AppTokens.space2),
-              child: PlannedListTile(item: item),
+              child: FadeIn(
+                delay: staggerDelay(index),
+                child: PlannedListTile(item: item),
+              ),
             ),
       ],
     );
@@ -246,10 +250,19 @@ class _BalanceCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Flexible(
-                  child: MoneyText(
-                    shown,
-                    style: Theme.of(context).textTheme.displaySmall,
-                    color: AppTokens.textPrimary,
+                  // El saldo es la cifra que mas cambia y la que mas se mira:
+                  // que se sustituya con un fundido deja ver que ha cambiado,
+                  // en vez de aparecer otro numero como si siempre hubiera
+                  // estado ahi.
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 260),
+                    switchInCurve: Curves.easeOut,
+                    child: MoneyText(
+                      shown,
+                      key: ValueKey(shown),
+                      style: Theme.of(context).textTheme.displaySmall,
+                      color: AppTokens.textPrimary,
+                    ),
                   ),
                 ),
                 if (hasReserve) ...[

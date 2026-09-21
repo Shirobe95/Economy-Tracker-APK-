@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/app_tokens.dart';
 import '../../core/database/app_database.dart';
 import '../../core/utils/money.dart';
+import '../../core/widgets/fade_in.dart';
 import '../../core/widgets/feature_placeholder.dart';
 import '../../core/widgets/form_fields.dart';
 import '../../core/widgets/money_text.dart';
@@ -171,13 +172,17 @@ class _GroupedList extends StatelessWidget {
         for (final entry in byMonth.entries) ...[
           _MonthHeader(month: entry.key, movements: entry.value),
           const SizedBox(height: AppTokens.space2),
-          for (final movement in entry.value)
+          for (final (index, movement) in entry.value.indexed)
             Padding(
+              key: ValueKey(movement.id),
               padding: const EdgeInsets.only(bottom: AppTokens.space2),
-              child: MovementListTile(
-                movement: movement,
-                mixedDirections: true,
-                showActualDate: true,
+              child: FadeIn(
+                delay: staggerDelay(index),
+                child: MovementListTile(
+                  movement: movement,
+                  mixedDirections: true,
+                  showActualDate: true,
+                ),
               ),
             ),
           const SizedBox(height: AppTokens.space3),

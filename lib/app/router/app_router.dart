@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/database/app_database.dart';
 import '../../core/database/enums.dart';
+import '../../core/utils/dates.dart';
 import '../../core/widgets/app_shell.dart';
 import '../../features/accounts/accounts_screen.dart';
 import '../../features/backup/backup_screen.dart';
@@ -93,6 +95,22 @@ GoRouter buildRouter() {
         builder: (context, state) => MovementDetailScreen(
           movementId: int.parse(state.pathParameters['id']!),
         ),
+      ),
+      GoRoute(
+        // Repetir un gasto que se hace cada semana: se abre un alta nueva ya
+        // rellena, no una edicion del anterior. El movimiento original no se
+        // toca.
+        path: '/movimientos/:id/repetir',
+        builder: (context, state) {
+          final source = state.extra! as Transaction;
+          return MovementFormScreen(
+            type: source.type,
+            initialConcept: source.concept,
+            initialAmount: source.amount,
+            initialCategoryId: source.categoryId,
+            initialDate: Dates.today(),
+          );
+        },
       ),
       GoRoute(
         path: '/movimientos/:id/editar',

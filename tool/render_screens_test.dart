@@ -15,6 +15,7 @@ import 'package:economy_tracker/features/income/income_screen.dart';
 import 'package:economy_tracker/features/movements/movements_screen.dart';
 import 'package:economy_tracker/features/projects/projects_screen.dart';
 import 'package:economy_tracker/features/reports/reports_screen.dart';
+import 'package:economy_tracker/features/security/lock_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -336,6 +337,10 @@ void main() {
     'movimientos',
     (t) => capture(t, '09-movimientos', const MovementsScreen()),
   );
+  testWidgets(
+    'bloqueo',
+    (t) => capture(t, '10-bloqueo', LockScreen(onUnlocked: () {})),
+  );
 }
 
 /// Carga Roboto y los iconos de Material desde el propio SDK de Flutter.
@@ -367,8 +372,10 @@ Future<void> _loadRealFonts() async {
   ByteData read(String name) =>
       File('${fontsDir.path}/$name').readAsBytesSync().buffer.asByteData();
 
+  // Todos los pesos que hay, no solo tres: el tema pide w600 en botones y
+  // rotulos, y si no hay un peso cercano registrado el texto sale en cajas.
   final roboto = FontLoader('Roboto');
-  for (final weight in ['Regular', 'Medium', 'Bold']) {
+  for (final weight in ['Light', 'Regular', 'Medium', 'Bold', 'Black']) {
     roboto.addFont(Future.value(read('Roboto-$weight.ttf')));
   }
   await roboto.load();

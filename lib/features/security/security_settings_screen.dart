@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/app_tokens.dart';
@@ -7,6 +6,7 @@ import '../../core/widgets/finance_card.dart';
 import '../../core/widgets/section_header.dart';
 import '../../data/app_lock_service.dart';
 import '../../data/biometric_service.dart';
+import 'pin_pad.dart';
 
 /// Ajustes de bloqueo local.
 class SecuritySettingsScreen extends ConsumerWidget {
@@ -199,48 +199,74 @@ class SecuritySettingsScreen extends ConsumerWidget {
     required String confirmLabel,
     String? helper,
   }) {
-    final controller = TextEditingController();
     return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Column(
+      builder: (context) =>
+          _PinDialog(title: title, confirmLabel: confirmLabel, helper: helper),
+    );
+  }
+}
+
+/// Dialogo para teclear un PIN.
+///
+/// Usa el mismo teclado que la pantalla de bloqueo. Antes era un campo de
+/// texto normal: se veian a la vez los puntos, la linea de escritura y el
+/// numero recien tecleado, y encima el teclado del sistema tapaba el dialogo.
+class _PinDialog extends StatefulWidget {
+  const _PinDialog({
+    required this.title,
+    required this.confirmLabel,
+    this.helper,
+  });
+
+  final String title;
+  final String confirmLabel;
+  final String? helper;
+
+  @override
+  State<_PinDialog> createState() => _PinDialogState();
+}
+
+class _PinDialogState extends State<_PinDialog> {
+  String _pin = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = _pin.length >= AppLockService.minLength;
+
+    return AlertDialog(
+      backgroundColor: AppTokens.surfaceElevated,
+      title: Text(widget.title),
+      content: SingleChildScrollView(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (helper != null) ...[
+            if (widget.helper != null) ...[
               Text(
-                helper,
+                widget.helper!,
+                textAlign: TextAlign.center,
                 style: const TextStyle(color: AppTokens.textSecondary),
               ),
               const SizedBox(height: AppTokens.space4),
             ],
-            TextField(
-              controller: controller,
-              autofocus: true,
-              obscureText: true,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(AppLockService.maxLength),
-              ],
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 24, letterSpacing: 10),
-              onSubmitted: (value) => Navigator.of(context).pop(value),
+            PinPad(
+              value: _pin,
+              onChanged: (value) => setState(() => _pin = value),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: Text(confirmLabel),
-          ),
-        ],
       ),
-    ).whenComplete(controller.dispose);
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: ready ? () => Navigator.of(context).pop(_pin) : null,
+          child: Text(widget.confirmLabel),
+        ),
+      ],
+    );
   }
 }
 

@@ -29,7 +29,7 @@ abstract final class AppTheme {
       // Declarada explicitamente en vez de depender de la fuente por defecto
       // del entorno: es la del sistema en Android, y hace que los renders de
       // revision salgan con la misma tipografia que el dispositivo.
-      fontFamily: 'Roboto',
+      fontFamily: AppTokens.fontFamily,
       scaffoldBackgroundColor: AppTokens.background,
       canvasColor: AppTokens.background,
       splashFactory: InkSparkle.splashFactory,
@@ -73,7 +73,11 @@ abstract final class AppTheme {
           backgroundColor: AppTokens.accent,
           foregroundColor: AppTokens.onAccent,
           minimumSize: const Size.fromHeight(AppTokens.minTouchTarget),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontFamily: AppTokens.fontFamily,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTokens.radiusControl),
           ),

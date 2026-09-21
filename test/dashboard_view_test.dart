@@ -220,4 +220,42 @@ void main() {
     expect(find.text('Compra hecha'), findsOneWidget);
     expect(find.text('Compra por hacer'), findsNothing);
   });
+
+  appTest('repetir un movimiento abre un alta nueva ya rellena', (
+    tester,
+    db,
+  ) async {
+    final accountId = await seedAccount(db);
+    final today = Dates.today();
+
+    await db
+        .into(db.transactions)
+        .insert(
+          TransactionsCompanion.insert(
+            type: MovementType.expense,
+            status: MovementStatus.pagado,
+            concept: 'Supermercado',
+            amount: 2763,
+            currency: 'EUR',
+            accountId: accountId,
+            expectedDate: today.subtract(const Duration(days: 3)),
+            actualDate: Value(today.subtract(const Duration(days: 3))),
+          ),
+        );
+    await tester.pumpAndSettle();
+    await scrollToEnd(tester);
+    await tapText(tester, 'Historial');
+    await tapText(tester, 'Supermercado');
+
+    await tester.tap(find.byTooltip('Repetir este movimiento'));
+    await tester.pumpAndSettle();
+
+    // Concepto e importe ya puestos, y el original intacto.
+    expect(find.widgetWithText(AppBar, 'Nuevo gasto'), findsOneWidget);
+    expect(find.text('Supermercado'), findsWidgets);
+    expect(find.text('27.63'), findsOneWidget);
+
+    final rows = await db.select(db.transactions).get();
+    expect(rows, hasLength(1), reason: 'repetir no duplica todavia nada');
+  });
 }

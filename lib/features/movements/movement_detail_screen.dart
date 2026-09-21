@@ -28,15 +28,25 @@ class MovementDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Detalle'),
         actions: [
-          if (movement.value != null)
+          if (movement.value case final row?) ...[
+            // Los conceptos se repiten mucho —supermercado, desayuno— y
+            // volver a teclear el mismo importe cada vez es el trabajo que
+            // hace que una aplicacion asi se acabe abandonando.
+            IconButton(
+              icon: const Icon(Icons.copy_all_outlined),
+              tooltip: 'Repetir este movimiento',
+              onPressed: () =>
+                  context.push('/movimientos/$movementId/repetir', extra: row),
+            ),
             IconButton(
               icon: const Icon(Icons.edit_outlined),
               tooltip: 'Editar',
               onPressed: () => context.push(
                 '/movimientos/$movementId/editar',
-                extra: movement.value!.type,
+                extra: row.type,
               ),
             ),
+          ],
         ],
       ),
       body: movement.when(

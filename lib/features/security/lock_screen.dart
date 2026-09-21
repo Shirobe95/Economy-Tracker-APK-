@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/app_tokens.dart';
 import '../../core/widgets/section_header.dart';
 import '../../data/app_lock_service.dart';
 import '../../data/biometric_service.dart';
+import 'pin_pad.dart';
 
-/// Pantalla de desbloqueo por PIN.
+/// Pantalla de desbloqueo.
 ///
 /// No hay forma de saltarsela ni de recuperar el PIN: no hay servidor ni
 /// cuenta desde donde restablecerlo. Quien lo olvide tendra que reinstalar y
@@ -22,10 +22,11 @@ class LockScreen extends ConsumerStatefulWidget {
 }
 
 class _LockScreenState extends ConsumerState<LockScreen> {
-  final _controller = TextEditingController();
+  String _pin = '';
   bool _checking = false;
   String? _error;
   int _failures = 0;
+  int _shake = 0;
   bool _biometricTried = false;
 
   @override
@@ -34,12 +35,6 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     // Se pide la huella nada mas abrir: es el camino normal, y tener que
     // pulsar un boton antes para que salga el dialogo del sistema sobra.
     WidgetsBinding.instance.addPostFrameCallback((_) => _tryBiometric());
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   /// Ofrece la huella, si esta activada.
@@ -70,16 +65,14 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   }
 
   Future<void> _unlock() async {
-    if (_checking) return;
-    final pin = _controller.text;
-    if (pin.isEmpty) return;
+    if (_checking || _pin.length < AppLockService.minLength) return;
 
     setState(() {
       _checking = true;
       _error = null;
     });
 
-    final ok = await ref.read(appLockServiceProvider).verify(pin);
+    final ok = await ref.read(appLockServiceProvider).verify(_pin);
     if (!mounted) return;
 
     if (ok) {
@@ -90,103 +83,117 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     setState(() {
       _checking = false;
       _failures++;
+      _shake++;
       _error = 'PIN incorrecto.';
-      _controller.clear();
+      _pin = '';
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final biometricEnabled = ref.watch(biometricEnabledProvider).value ?? false;
+    final ready = _pin.length >= AppLockService.minLength;
+
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppTokens.spacePage),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const RoundIcon(
-                Icons.lock_outline,
-                color: AppTokens.accent,
-                size: 72,
-              ),
-              const SizedBox(height: AppTokens.space5),
-              Text(
-                'Economy Tracker',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: AppTokens.space2),
-              const Text(
-                'Introduce tu PIN para continuar.',
-                style: TextStyle(color: AppTokens.textSecondary),
-              ),
-              const SizedBox(height: AppTokens.space6),
-              TextField(
-                controller: _controller,
-                // Sin foco automatico cuando hay huella: el teclado tapando
-                // el dialogo del sistema es peor que un toque de mas.
-                autofocus:
-                    !(ref.watch(biometricEnabledProvider).value ?? false),
-                obscureText: true,
-                enabled: !_checking,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(AppLockService.maxLength),
-                ],
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 28, letterSpacing: 12),
-                decoration: const InputDecoration(hintText: '••••'),
-                onSubmitted: (_) => _unlock(),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: AppTokens.space3),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTokens.space4,
+              vertical: AppTokens.space5,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const RoundIcon(
+                  Icons.lock_outline,
+                  color: AppTokens.accent,
+                  size: 64,
+                ),
+                const SizedBox(height: AppTokens.space4),
                 Text(
-                  _error!,
-                  style: const TextStyle(color: AppTokens.negative),
+                  'Economy Tracker',
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
-              ],
-              const SizedBox(height: AppTokens.space5),
-              FilledButton(
-                onPressed: _checking ? null : _unlock,
-                child: _checking
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Desbloquear'),
-              ),
-              // Por si el dialogo automatico se cancelo sin querer.
-              if (ref.watch(biometricEnabledProvider).value ?? false) ...[
-                const SizedBox(height: AppTokens.space3),
-                TextButton.icon(
-                  onPressed: _checking
-                      ? null
-                      : () => _tryBiometric(manual: true),
-                  icon: const Icon(Icons.fingerprint),
-                  label: const Text('Usar huella'),
-                ),
-              ],
-              if (_failures >= 3) ...[
-                const SizedBox(height: AppTokens.space5),
-                Container(
-                  padding: const EdgeInsets.all(AppTokens.space3),
-                  decoration: BoxDecoration(
-                    color: AppTokens.surface,
-                    borderRadius: BorderRadius.circular(
-                      AppTokens.radiusControl,
+                const SizedBox(height: AppTokens.space2),
+                // Se reserva la altura de una linea para que un «PIN
+                // incorrecto» no empuje el teclado y mueva la tecla que ibas
+                // a pulsar. Pero solo el minimo: los avisos de la huella
+                // ocupan tres lineas, y recortarlos dejaria a la vista un
+                // trozo de frase que no se entiende.
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 22),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    child: Text(
+                      _error ?? 'Introduce tu PIN',
+                      key: ValueKey(_error),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _error == null
+                            ? AppTokens.textSecondary
+                            : AppTokens.negative,
+                      ),
                     ),
-                    border: Border.all(color: AppTokens.border),
-                  ),
-                  child: const Text(
-                    'No hay forma de recuperar el PIN: la aplicacion no tiene '
-                    'servidor ni cuenta. Si lo has olvidado, tendras que '
-                    'reinstalar y restaurar una copia de seguridad.',
-                    style: TextStyle(color: AppTokens.textSecondary),
                   ),
                 ),
+                const SizedBox(height: AppTokens.space5),
+                PinPad(
+                  value: _pin,
+                  enabled: !_checking,
+                  shake: _shake,
+                  onBiometric: biometricEnabled
+                      ? () => _tryBiometric(manual: true)
+                      : null,
+                  onChanged: (value) => setState(() {
+                    _pin = value;
+                    _error = null;
+                  }),
+                ),
+                const SizedBox(height: AppTokens.space5),
+                SizedBox(
+                  width: 232,
+                  child: FilledButton(
+                    onPressed: ready && !_checking ? _unlock : null,
+                    child: _checking
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Desbloquear'),
+                  ),
+                ),
+                // El aviso aparece cuando ya se ha intentado unas cuantas
+                // veces: antes solo seria ruido.
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                  child: _failures < 3
+                      ? const SizedBox(width: double.infinity)
+                      : Padding(
+                          padding: const EdgeInsets.only(top: AppTokens.space5),
+                          child: Container(
+                            padding: const EdgeInsets.all(AppTokens.space3),
+                            decoration: BoxDecoration(
+                              color: AppTokens.surface,
+                              borderRadius: BorderRadius.circular(
+                                AppTokens.radiusControl,
+                              ),
+                              border: Border.all(color: AppTokens.border),
+                            ),
+                            child: const Text(
+                              'No hay forma de recuperar el PIN: la '
+                              'aplicacion no tiene servidor ni cuenta. Si lo '
+                              'has olvidado, tendras que reinstalar y '
+                              'restaurar una copia de seguridad.',
+                              style: TextStyle(color: AppTokens.textSecondary),
+                            ),
+                          ),
+                        ),
+                ),
               ],
-            ],
+            ),
           ),
         ),
       ),

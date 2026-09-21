@@ -79,12 +79,14 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         return;
       }
 
-      // En Android, saveFile ya escribe los bytes. En otras plataformas
-      // devuelve la ruta y hay que escribirlos: comprobarlo evita dejar un
-      // archivo vacio sin que nadie se entere.
-      final file = File(path);
-      if (!file.existsSync() || file.lengthSync() == 0) {
-        await file.writeAsBytes(bytes);
+      // En movil, `saveFile` ya ha escrito el archivo a traves del sistema y
+      // lo que devuelve es un identificador de documento, no una ruta:
+      // algo como `/document/raw:/storage/emulated/0/Download/...`. Abrirlo
+      // como `File` falla con PathNotFoundException aunque la copia este
+      // perfectamente guardada. En escritorio si devuelve una ruta real y es
+      // la aplicacion quien tiene que escribir.
+      if (!Platform.isAndroid && !Platform.isIOS) {
+        await File(path).writeAsBytes(bytes);
       }
 
       _report('Copia guardada como $_fileName.');

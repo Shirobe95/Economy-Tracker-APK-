@@ -8,7 +8,7 @@ owner: compartido
 current_cut: ECON-100 (reconstruccion)
 next_action: Tercera ronda cerrada (2026-09-20): reserva de ahorro sobre el saldo, compromisos previstos con repeticiones, historial solo de lo realizado. Pendiente de Andy: confirmar si los objetivos por importe deben apartar su ahorro declarado (DEC-009). Ver [[CLAUDE · Reconstrucción completa en repositorio]].
 created: 2026-09-05
-updated: 2026-09-20
+updated: 2026-09-21
 ---
 
 # Economy Tracker · Inicio
@@ -158,7 +158,32 @@ quedaba pendiente:
   septiembre ni ha terminado ni se cubrio entero.
   [[DEC-013 · Mes de arranque y meses parciales]].
 
-274 tests, analyze y format limpios.
+## Quinta ronda · 2026-09-21
+
+- **Guardar la copia en el movil fallaba.** `saveFile` ya escribe el archivo a
+  traves del sistema y devuelve un identificador de documento, no una ruta:
+  abrirlo como `File` reventaba con PathNotFoundException aunque la copia
+  estuviera perfectamente guardada. La comprobacion defensiva que anadi era
+  justo lo que rompia. Ahora solo se escribe a mano en escritorio.
+- **Teclado propio para el PIN**, con puntos y sin campo de texto:
+  [[DEC-014 · Teclado propio para el PIN]].
+- **Animaciones sutiles**: las filas de lista entran escalonadas una sola vez
+  —no en cada recalculo del stream— y el saldo de Inicio se sustituye con un
+  fundido en vez de cambiar de golpe.
+- **Repetir un movimiento.** Sale de los datos reales de Andy: «Supermercado»
+  cuatro veces, «Desayuno» tres. Abre un alta ya rellena con la fecha de hoy.
+
+Tres fallos que encontro la revision del codigo, ninguno visible en
+dispositivo todavia: el teclado del PIN desbordaba dentro de un dialogo en un
+movil de 360 dp; el hueco de altura fija recortaba los avisos de huella de
+varias lineas; y `FadeIn` creaba un `CurvedAnimation` en cada `build`, dejando
+un oyente por fila y por reconstruccion en listas que cuelgan de streams.
+
+Tambien se arreglo la fidelidad de las capturas: el texto de los botones salia
+en cajas porque `styleFrom` construye TextStyle que no heredan la familia del
+tema. Ahora la familia es un token.
+
+284 tests, analyze y format limpios.
 
 ## Roadmap
 

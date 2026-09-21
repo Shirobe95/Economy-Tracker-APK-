@@ -7,6 +7,7 @@ import '../../core/database/app_database.dart';
 import '../../core/database/enums.dart';
 import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
+import '../../core/widgets/fade_in.dart';
 import '../../core/widgets/feature_placeholder.dart';
 import '../../core/widgets/finance_card.dart';
 import '../../core/widgets/form_fields.dart';
@@ -212,11 +213,14 @@ class _ExpenseList extends ConsumerWidget {
         if (verPendientes && pending.isNotEmpty) ...[
           const SectionHeader('Por pagar'),
           const SizedBox(height: AppTokens.space2),
-          for (final item in pending)
+          for (final (index, item) in pending.indexed)
             Padding(
               key: ValueKey(item.key),
               padding: const EdgeInsets.only(bottom: AppTokens.space2),
-              child: PlannedListTile(item: item, mixedDirections: false),
+              child: FadeIn(
+                delay: staggerDelay(index),
+                child: PlannedListTile(item: item, mixedDirections: false),
+              ),
             ),
           const SizedBox(height: AppTokens.space4),
         ],

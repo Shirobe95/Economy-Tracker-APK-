@@ -101,6 +101,13 @@ abstract final class AppTokens {
   static const double spaceXxl = 32;
 
   // Alias numerados: es como los usa toda la interfaz.
+  /// Familia tipografica de toda la aplicacion.
+  ///
+  /// Esta aqui porque `styleFrom` construye TextStyle sueltos que no heredan
+  /// la familia del tema: sin declararla, el texto de esos botones cae a la
+  /// fuente por defecto del entorno.
+  static const String fontFamily = 'Roboto';
+
   static const double space1 = spaceXs;
   static const double space2 = spaceSm;
   static const double space3 = spaceMd;
