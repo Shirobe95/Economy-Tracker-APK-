@@ -183,7 +183,11 @@ Tambien se arreglo la fidelidad de las capturas: el texto de los botones salia
 en cajas porque `styleFrom` construye TextStyle que no heredan la familia del
 tema. Ahora la familia es un token.
 
-284 tests, analyze y format limpios.
+- **Cuadrar el saldo con el banco**: [[DEC-015 · Cuadrar el saldo con el banco]].
+  Se descarto antes el enlace automatico por PSD2, que habria exigido servidor
+  propio y reautenticacion cada 180 dias.
+
+301 tests, analyze y format limpios.
 
 ## Roadmap
 

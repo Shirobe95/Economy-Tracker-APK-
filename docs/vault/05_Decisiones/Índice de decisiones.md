@@ -17,3 +17,4 @@ saliendo de la reconstrucción.
 - [[DEC-012 · La copia se guarda como archivo, no solo se comparte]]
 - [[DEC-013 · Mes de arranque y meses parciales]]
 - [[DEC-014 · Teclado propio para el PIN]]
+- [[DEC-015 · Cuadrar el saldo con el banco]]

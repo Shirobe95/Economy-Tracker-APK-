@@ -18,6 +18,7 @@ class AmountField extends StatelessWidget {
     this.allowNegative = false,
     this.autofocus = false,
     this.onSubmitted,
+    this.onChanged,
   });
 
   final TextEditingController controller;
@@ -27,6 +28,9 @@ class AmountField extends StatelessWidget {
   final bool allowNegative;
   final bool autofocus;
   final VoidCallback? onSubmitted;
+
+  /// Para pantallas que reaccionan segun se escribe, como cuadrar un saldo.
+  final ValueChanged<String>? onChanged;
 
   /// Valida el texto actual y devuelve el mensaje de error, o `null`.
   static String? validate(String value, {bool allowNegative = false}) {
@@ -56,6 +60,7 @@ class AmountField extends StatelessWidget {
         ),
       ],
       textInputAction: TextInputAction.next,
+      onChanged: onChanged,
       onFieldSubmitted: (_) => onSubmitted?.call(),
       decoration: InputDecoration(
         labelText: label,

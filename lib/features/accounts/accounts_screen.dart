@@ -7,6 +7,7 @@ import '../../core/widgets/finance_card.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/section_header.dart';
 import '../../data/account_repository.dart';
+import 'reconcile_dialog.dart';
 import '../movements/quick_create_dialogs.dart';
 
 /// Cuentas y su saldo real (UI-13).
@@ -114,6 +115,12 @@ class _AccountCard extends ConsumerWidget {
               ],
             ),
           ),
+          if (!archived && entry.balance != null)
+            IconButton(
+              tooltip: 'Cuadrar con el banco',
+              icon: const Icon(Icons.balance_outlined),
+              onPressed: () => showReconcileDialog(context, ref, entry.account),
+            ),
           IconButton(
             tooltip: archived ? 'Reactivar' : 'Archivar',
             icon: Icon(
