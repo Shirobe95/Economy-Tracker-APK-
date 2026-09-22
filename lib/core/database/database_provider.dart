@@ -25,17 +25,35 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
 /// Es la forma correcta de observar varias tablas a la vez. El atajo de
 /// observar una consulta tonta con `readsFrom` no sirve: Drift cachea los
 /// streams por su SQL, asi que dos sitios que usen el mismo texto comparten
-/// stream y el segundo acaba escuchando las tablas del primero.
+/// stream y el segundo acaba escuchando las tablas del primero (DEC-008).
 ///
-/// Se delega con `yield*` en vez de recorrer con `await for`, porque asi la
-/// cancelacion llega al stream de origen: con `await for`, cancelar deja el
-/// generador esperando para siempre.
+/// **El orden de las dos cosas importa, y por eso esto ya no es un `async*`
+/// con un `yield null` delante.** En un generador, el `yield` cede el control
+/// hasta que el consumidor procesa el valor, y el consumidor de aqui es
+/// siempre un `asyncMap` que se va a la base. Mientras dura esa primera
+/// carga, el generador aun no ha llegado al `yield*` y **no esta suscrito a
+/// las tablas**: cualquier escritura que caiga en esa ventana no dispara
+/// nada, y la vista se queda con los datos de antes hasta el siguiente
+/// cambio. Suscribiendo primero y latiendo despues, la ventana no existe.
 Stream<void> watchTables(
   AppDatabase db,
   List<TableInfo<Table, dynamic>> tables,
-) async* {
-  yield null;
-  yield* db.tableUpdates(TableUpdateQuery.onAllTables(tables));
+) {
+  return Stream<void>.multi((controller) {
+    final subscription = db
+        .tableUpdates(TableUpdateQuery.onAllTables(tables))
+        .listen(
+          (_) => controller.add(null),
+          onError: controller.addError,
+          onDone: controller.close,
+        );
+
+    controller.onCancel = subscription.cancel;
+    // La pausa no se reenvia a proposito: el controlador guarda los pocos
+    // avisos que lleguen mientras el consumidor esta ocupado recalculando,
+    // que es exactamente lo que no debe perderse.
+    controller.add(null);
+  });
 }
 
 /// Base de datos en memoria, para tests y renders.

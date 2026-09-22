@@ -124,6 +124,31 @@ void main() {
     },
   );
 
+  test('un cambio escrito mientras carga la vista no se pierde', () async {
+    // Los demas tests de este archivo esperan 50 ms despues de suscribirse,
+    // y por eso ninguno veia este fallo: para entonces la primera carga ya
+    // ha terminado. En la aplicacion no hay esa pausa —se pulsa «guardar»
+    // mientras la pantalla se esta montando— y ahi la escritura cae en una
+    // ventana en la que el disparador todavia no escucha nada.
+    final clientId = await projects.saveClient(name: 'Cliente');
+
+    final stream = projects.watchSummaries(clientId: clientId);
+    // Se pide la **segunda** emision: la primera es la carga inicial y lo
+    // que se comprueba es que el cambio posterior llega.
+    final second = stream.skip(1).first;
+
+    await projects.saveProject(clientId: clientId, name: 'Modulo lectura');
+
+    final rows = await second.timeout(
+      const Duration(seconds: 2),
+      onTimeout: () => throw StateError(
+        'el proyecto se guardo y la lista no se entero nunca',
+      ),
+    );
+
+    expect(rows, hasLength(1));
+  });
+
   test('los tres repositorios reaccionan cada uno a lo suyo', () async {
     // Con tres consumidores el fallo de los streams compartidos seria aun
     // mas dificil de ver a ojo, asi que se prueba a la vez.
