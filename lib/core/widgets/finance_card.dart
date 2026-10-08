@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_tokens.dart';
 
-/// Tarjeta base del sistema visual: superficie discreta con borde suave.
+/// Tarjeta base del sistema visual: plana, sin contorno, con una sombra
+/// minima que la delimita.
 ///
 /// Todas las agrupaciones de contenido usan esta tarjeta para que la
-/// jerarquia y los radios sean consistentes en toda la aplicacion.
+/// jerarquia y los radios sean consistentes en toda la aplicacion. Hasta
+/// DEC-017 llevaba un borde; se quito a favor de una sombra suave, que
+/// separa sin el ruido de un contorno duro.
 class FinanceCard extends StatelessWidget {
   const FinanceCard({
     super.key,
@@ -35,9 +38,13 @@ class FinanceCard extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: borderRadius,
-            border: Border.all(
-              color: accent ? AppTokens.borderStrong : AppTokens.border,
-            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0x33000000),
+                blurRadius: accent ? 20 : 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
           padding: padding,
           width: double.infinity,

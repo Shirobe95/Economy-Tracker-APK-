@@ -112,11 +112,21 @@ class PlannedListTile extends ConsumerWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppTokens.radiusCard),
-            // Un recibo vencido y sin pagar se marca en el borde: es lo unico
-            // de esta lista sobre lo que hay que hacer algo ya.
-            border: Border.all(
-              color: overdue ? AppTokens.negative : AppTokens.border,
-            ),
+            // Un recibo vencido y sin pagar se marca con un borde: es lo
+            // unico de esta lista sobre lo que hay que hacer algo ya. El
+            // resto de filas va sin contorno, con una sombra minima.
+            border: overdue
+                ? Border.all(color: AppTokens.negative, width: 1.5)
+                : null,
+            boxShadow: overdue
+                ? null
+                : [
+                    BoxShadow(
+                      color: const Color(0x33000000),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
           ),
           padding: const EdgeInsets.all(AppTokens.space3),
           child: Row(
