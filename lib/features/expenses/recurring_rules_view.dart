@@ -75,23 +75,25 @@ class RecurringRulesView extends ConsumerWidget {
   }
 }
 
+/// Como se lee la frecuencia de una regla: «Cada mes», «Cada 2 semanas»...
+String frequencyLabel(RecurringRule rule) {
+  final every = rule.intervalCount;
+  return switch (rule.frequency) {
+    RecurrenceFrequency.daily => every == 1 ? 'Cada dia' : 'Cada $every dias',
+    RecurrenceFrequency.weekly =>
+      every == 1 ? 'Cada semana' : 'Cada $every semanas',
+    RecurrenceFrequency.monthly =>
+      every == 1 ? 'Cada mes' : 'Cada $every meses',
+    RecurrenceFrequency.yearly => every == 1 ? 'Cada ano' : 'Cada $every anos',
+  };
+}
+
 class _RuleCard extends ConsumerWidget {
   const _RuleCard({required this.rule});
 
   final RecurringRule rule;
 
-  String get _frequencyLabel {
-    final every = rule.intervalCount;
-    return switch (rule.frequency) {
-      RecurrenceFrequency.daily => every == 1 ? 'Cada dia' : 'Cada $every dias',
-      RecurrenceFrequency.weekly =>
-        every == 1 ? 'Cada semana' : 'Cada $every semanas',
-      RecurrenceFrequency.monthly =>
-        every == 1 ? 'Cada mes' : 'Cada $every meses',
-      RecurrenceFrequency.yearly =>
-        every == 1 ? 'Cada ano' : 'Cada $every anos',
-    };
-  }
+  String get _frequencyLabel => frequencyLabel(rule);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

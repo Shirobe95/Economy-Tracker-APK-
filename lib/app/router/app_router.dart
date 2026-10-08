@@ -124,6 +124,13 @@ GoRouter buildRouter() {
         builder: (context, state) => const RecurringRuleFormScreen(),
       ),
       GoRoute(
+        path: '/proyectos/detalle/:id/cobros/fijo/nuevo',
+        builder: (context, state) => RecurringRuleFormScreen(
+          type: MovementType.projectIncome,
+          projectId: int.parse(state.pathParameters['id']!),
+        ),
+      ),
+      GoRoute(
         path: '/reglas/:id/editar',
         builder: (context, state) => RecurringRuleFormScreen(
           ruleId: int.parse(state.pathParameters['id']!),

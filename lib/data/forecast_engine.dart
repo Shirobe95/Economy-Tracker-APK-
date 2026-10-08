@@ -165,6 +165,13 @@ abstract final class ForecastEngine {
   ///
   /// Solo previsto y pendiente: lo cancelado no va a pasar y lo ya realizado
   /// esta contado en el saldo de partida.
+  ///
+  /// Excepcion (DEC-016): un cobro de proyecto suelto —sin regla fija
+  /// detras— no entra aqui aunque este anotado con fecha futura. Un trabajo
+  /// puntual no tiene la misma certeza de que vaya a repetirse que un gasto
+  /// fijo o una nomina, y contarlo inflaria la proyeccion con un ingreso que
+  /// puede no volver a pasar. Si viene de una regla (`recurringRuleId` no
+  /// nulo), si cuenta: es la ocurrencia ya anotada de un cobro fijo.
   static List<ForecastMilestone> _committedMilestones(
     List<Transaction> movements,
     DateTime today,
@@ -181,6 +188,8 @@ abstract final class ForecastEngine {
             !movement.type.isTransfer &&
             !movement.status.isRealised &&
             movement.status != MovementStatus.cancelado &&
+            !(movement.type == MovementType.projectIncome &&
+                movement.recurringRuleId == null) &&
             !movement.expectedDate.isBefore(today) &&
             movement.expectedDate.isBefore(horizon))
           ForecastMilestone(

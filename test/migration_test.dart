@@ -71,6 +71,34 @@ void main() {
     )
   ''';
 
+  /// Esquema v4 de `recurring_rules`, antes de poder llevar un proyecto.
+  const recurringRulesV4 = '''
+    CREATE TABLE "recurring_rules" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "created_at" INTEGER NOT NULL DEFAULT (CAST(strftime('%s', CURRENT_TIMESTAMP) AS INTEGER)),
+      "updated_at" INTEGER NOT NULL DEFAULT (CAST(strftime('%s', CURRENT_TIMESTAMP) AS INTEGER)),
+      "concept" TEXT NOT NULL,
+      "type" TEXT NOT NULL,
+      "account_id" INTEGER NOT NULL,
+      "destination_account_id" INTEGER NULL,
+      "category_id" INTEGER NULL,
+      "amount" INTEGER NOT NULL,
+      "currency" TEXT NOT NULL,
+      "frequency" TEXT NOT NULL,
+      "interval_count" INTEGER NOT NULL DEFAULT 1,
+      "start_date" TEXT NOT NULL,
+      "end_date" TEXT NULL,
+      "month_day" INTEGER NULL,
+      "weekday" INTEGER NULL,
+      "next_date" TEXT NULL,
+      "is_active" INTEGER NOT NULL DEFAULT 1 CHECK ("is_active" IN (0, 1)),
+      "auto_generate" INTEGER NOT NULL DEFAULT 0 CHECK ("auto_generate" IN (0, 1)),
+      CHECK (currency GLOB '[A-Z][A-Z][A-Z]'),
+      CHECK (amount > 0),
+      CHECK (interval_count > 0 AND interval_count <= 120)
+    )
+  ''';
+
   late Directory workspace;
 
   setUp(() => workspace = Directory.systemTemp.createTempSync('econ-mig'));
@@ -105,10 +133,70 @@ void main() {
     return AppDatabase(DatabaseConnection(NativeDatabase(file)));
   }
 
-  test('la version de esquema es 4', () {
+  /// Deja en disco una base ya en v4, con una regla de gasto dentro, y la
+  /// vuelve a abrir con la aplicacion actual para que migre a v5.
+  Future<AppDatabase> migratedFromV4() async {
+    final file = File('${workspace.path}/economy_tracker.sqlite');
+
+    final setup = AppDatabase(DatabaseConnection(NativeDatabase(file)));
+    await setup.customStatement('SELECT 1');
+    await setup.customStatement('DROP TABLE recurring_rules');
+    await setup.customStatement(recurringRulesV4);
+    await setup.customStatement(
+      "INSERT INTO recurring_rules "
+      "(concept, type, account_id, amount, currency, frequency, start_date) "
+      "VALUES ('Alquiler', 'expense', 1, 85000, 'EUR', 'monthly', '2026-01-01')",
+    );
+    await setup.customStatement('PRAGMA user_version = 4');
+    await setup.close();
+
+    return AppDatabase(DatabaseConnection(NativeDatabase(file)));
+  }
+
+  test('migrar de v4 conserva las reglas ya guardadas', () async {
+    final db = await migratedFromV4();
+    addTearDown(db.close);
+
+    final rules = await db.select(db.recurringRules).get();
+    expect(rules.single.concept, 'Alquiler');
+    expect(rules.single.amount, 85000);
+    // Las columnas nuevas existen y empiezan vacias: nadie ha dicho que
+    // regla es de un proyecto.
+    expect(rules.single.projectId, isNull);
+    expect(rules.single.clientId, isNull);
+  });
+
+  test(
+    'la tabla migrada exige proyecto en una regla de cobro de proyecto',
+    () async {
+      final db = await migratedFromV4();
+      addTearDown(db.close);
+
+      // Si la migracion hubiera usado ADD COLUMN, este CHECK no existiria en
+      // una base migrada y si en una recien instalada.
+      await expectLater(
+        db
+            .into(db.recurringRules)
+            .insert(
+              RecurringRulesCompanion.insert(
+                concept: 'Cobro sin proyecto',
+                type: MovementType.projectIncome,
+                accountId: 1,
+                amount: 50000,
+                currency: 'EUR',
+                frequency: RecurrenceFrequency.monthly,
+                startDate: DateTime.utc(2026, 9, 1),
+              ),
+            ),
+        throwsA(isA<Exception>()),
+      );
+    },
+  );
+
+  test('la version de esquema es 5', () {
     final db = AppDatabase(DatabaseConnection(NativeDatabase.memory()));
     addTearDown(db.close);
-    expect(db.schemaVersion, 4);
+    expect(db.schemaVersion, 5);
   });
 
   test('migrar de v1 conserva las nominas ya guardadas', () async {

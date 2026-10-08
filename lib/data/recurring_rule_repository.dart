@@ -23,7 +23,11 @@ class RecurringRuleRepository {
 
   final AppDatabase _db;
 
-  Stream<List<RecurringRule>> watchRules({int? accountId, MovementType? type}) {
+  Stream<List<RecurringRule>> watchRules({
+    int? accountId,
+    MovementType? type,
+    int? projectId,
+  }) {
     final query = _db.select(_db.recurringRules)
       ..orderBy([(r) => OrderingTerm.asc(r.concept)]);
     if (accountId != null) {
@@ -31,6 +35,9 @@ class RecurringRuleRepository {
     }
     if (type != null) {
       query.where((r) => r.type.equals(type.code));
+    }
+    if (projectId != null) {
+      query.where((r) => r.projectId.equals(projectId));
     }
     return query.watch();
   }
@@ -51,6 +58,7 @@ class RecurringRuleRepository {
     required int accountId,
     int? categoryId,
     int? destinationAccountId,
+    int? projectId,
     required int amount,
     required RecurrenceFrequency frequency,
     required int intervalCount,
@@ -83,6 +91,32 @@ class RecurringRuleRepository {
         field: 'endDate',
       );
     }
+    if (type != MovementType.projectIncome && projectId != null) {
+      throw const MovementValidationError(
+        'Solo un cobro de proyecto puede llevar proyecto asignado.',
+        field: 'project',
+      );
+    }
+
+    int? clientId;
+    if (type == MovementType.projectIncome) {
+      if (projectId == null) {
+        throw const MovementValidationError(
+          'Elige el proyecto al que pertenece este cobro fijo.',
+          field: 'project',
+        );
+      }
+      final project = await (_db.select(
+        _db.projects,
+      )..where((p) => p.id.equals(projectId))).getSingleOrNull();
+      if (project == null) {
+        throw const MovementValidationError(
+          'Ese proyecto ya no existe.',
+          field: 'project',
+        );
+      }
+      clientId = project.clientId;
+    }
 
     final anchor = Dates.day(startDate);
     final schedule = RecurrenceSchedule(
@@ -100,6 +134,8 @@ class RecurringRuleRepository {
       accountId: Value(accountId),
       destinationAccountId: Value(destinationAccountId),
       categoryId: Value(categoryId),
+      projectId: Value(projectId),
+      clientId: Value(clientId),
       amount: Value(amount),
       currency: Value(currency),
       frequency: Value(frequency),
@@ -211,6 +247,10 @@ class RecurringRuleRepository {
           accountId: rule.accountId,
           destinationAccountId: rule.destinationAccountId,
           categoryId: rule.categoryId,
+          // Sin esto, el cobro liquidado de una regla de proyecto se
+          // guardaria sin proyecto: no apareceria en la ficha del proyecto
+          // ni en sus totales, pese a venir de su propio cobro fijo.
+          projectId: rule.projectId,
           recurringRuleId: rule.id,
           expectedDate: expectedDate,
           actualDate: Dates.day(actualDate),

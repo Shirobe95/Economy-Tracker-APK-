@@ -4,12 +4,15 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme/app_tokens.dart';
 import '../../core/database/app_database.dart';
+import '../../core/database/enums.dart';
 import '../../core/utils/money.dart';
 import '../../core/widgets/feature_placeholder.dart';
 import '../../core/widgets/finance_card.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/section_header.dart';
+import '../../data/recurring_rule_repository.dart';
 import '../../data/project_repository.dart';
+import '../expenses/recurring_rules_view.dart' show frequencyLabel;
 import '../movements/movement_list_tile.dart';
 
 /// Ficha de un proyecto con sus cobros (UI-07).
@@ -139,6 +142,8 @@ class ProjectDetailScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: AppTokens.space5),
+              _FixedIncomeSection(projectId: projectId),
+              const SizedBox(height: AppTokens.space5),
               const SectionHeader('Cobros'),
               const SizedBox(height: AppTokens.space2),
               if (live.isEmpty)
@@ -173,3 +178,94 @@ final projectProvider = StreamProvider.family<Project?, int>(
 final projectIncomesProvider = StreamProvider.family<List<Transaction>, int>(
   (ref, id) => ref.watch(projectRepositoryProvider).watchIncomes(id),
 );
+
+/// Cobros fijos (reglas de tipo `project_income`) de un proyecto.
+final projectFixedIncomeProvider =
+    StreamProvider.family<List<RecurringRule>, int>(
+      (ref, projectId) => ref
+          .watch(recurringRuleRepositoryProvider)
+          .watchRules(type: MovementType.projectIncome, projectId: projectId),
+    );
+
+/// Cobros fijos del proyecto (DEC-016): a diferencia de un cobro suelto, se
+/// repiten solos y son los unicos que entran en la previsión.
+class _FixedIncomeSection extends ConsumerWidget {
+  const _FixedIncomeSection({required this.projectId});
+
+  final int projectId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rules = ref.watch(projectFixedIncomeProvider(projectId)).value;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader('Cobros fijos'),
+        const SizedBox(height: AppTokens.space2),
+        if (rules == null)
+          const SizedBox.shrink()
+        else if (rules.isEmpty)
+          const EmptyState(
+            message:
+                'Sin cobros fijos. Un cobro fijo se repite solo y es el '
+                'unico tipo de cobro que entra en la Prevision.',
+            icon: Icons.repeat_rounded,
+          )
+        else
+          for (final rule in rules)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppTokens.space2),
+              child: _FixedIncomeCard(rule: rule),
+            ),
+        const SizedBox(height: AppTokens.space2),
+        OutlinedButton.icon(
+          onPressed: () =>
+              context.push('/proyectos/detalle/$projectId/cobros/fijo/nuevo'),
+          icon: const Icon(Icons.add),
+          label: const Text('Cobro fijo'),
+        ),
+      ],
+    );
+  }
+}
+
+class _FixedIncomeCard extends StatelessWidget {
+  const _FixedIncomeCard({required this.rule});
+
+  final RecurringRule rule;
+
+  @override
+  Widget build(BuildContext context) {
+    return FinanceCard(
+      onTap: () => context.push('/reglas/${rule.id}/editar'),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  rule.concept,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                Text(
+                  frequencyLabel(rule),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          MoneyText(rule.amount, currency: rule.currency),
+          if (!rule.isActive) ...[
+            const SizedBox(width: AppTokens.space2),
+            const Text(
+              'Inactiva',
+              style: TextStyle(color: AppTokens.textMuted, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}

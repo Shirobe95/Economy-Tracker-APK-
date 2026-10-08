@@ -35,11 +35,14 @@ class AppDatabase extends _$AppDatabase {
   /// v4: `savings_goals.start_month`, el primer mes que cuenta para la
   ///     reserva acumulada de un objetivo mensual. Sin el, la reserva
   ///     dependeria de la marca de tiempo en que se creo la fila.
+  /// v5: `recurring_rules.project_id` y `.client_id`, para poder declarar un
+  ///     cobro de proyecto fijo (DEC-016). Antes de esto una regla solo podia
+  ///     ser de gasto: un cobro recurrente de cliente no tenia donde vivir.
   ///
   /// Al cambiarlo: subir version, anadir un paso explicito en [migration] y
   /// probarlo con datos previos. Nunca sustituirlo por borrar el archivo.
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -117,6 +120,19 @@ class AppDatabase extends _$AppDatabase {
           SET start_month = strftime('%Y-%m-01', created_at, 'unixepoch')
           WHERE kind = 'monthly' AND start_month IS NULL
         ''');
+      }
+
+      if (from <= 4) {
+        // TableMigration en vez de ADD COLUMN, por la misma razon que v1: la
+        // tabla recreada necesita el CHECK y la clave foranea compuesta que
+        // ligan project_id con client_id, y ADD COLUMN no puede darselos.
+        await m.alterTable(
+          // ignore: experimental_member_use
+          TableMigration(
+            recurringRules,
+            newColumns: [recurringRules.projectId, recurringRules.clientId],
+          ),
+        );
       }
 
       if (to > schemaVersion || from > schemaVersion) {

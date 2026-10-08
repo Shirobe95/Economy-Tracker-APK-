@@ -3349,6 +3349,28 @@ class $RecurringRulesTable extends RecurringRules
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _projectIdMeta = const VerificationMeta(
+    'projectId',
+  );
+  @override
+  late final GeneratedColumn<int> projectId = GeneratedColumn<int>(
+    'project_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _clientIdMeta = const VerificationMeta(
+    'clientId',
+  );
+  @override
+  late final GeneratedColumn<int> clientId = GeneratedColumn<int>(
+    'client_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _amountMeta = const VerificationMeta('amount');
   @override
   late final GeneratedColumn<int> amount = GeneratedColumn<int>(
@@ -3486,6 +3508,8 @@ class $RecurringRulesTable extends RecurringRules
     accountId,
     destinationAccountId,
     categoryId,
+    projectId,
+    clientId,
     amount,
     currency,
     frequency,
@@ -3554,6 +3578,18 @@ class $RecurringRulesTable extends RecurringRules
       context.handle(
         _categoryIdMeta,
         categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
+      );
+    }
+    if (data.containsKey('project_id')) {
+      context.handle(
+        _projectIdMeta,
+        projectId.isAcceptableOrUnknown(data['project_id']!, _projectIdMeta),
+      );
+    }
+    if (data.containsKey('client_id')) {
+      context.handle(
+        _clientIdMeta,
+        clientId.isAcceptableOrUnknown(data['client_id']!, _clientIdMeta),
       );
     }
     if (data.containsKey('amount')) {
@@ -3651,6 +3687,14 @@ class $RecurringRulesTable extends RecurringRules
         DriftSqlType.int,
         data['${effectivePrefix}category_id'],
       ),
+      projectId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}project_id'],
+      ),
+      clientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}client_id'],
+      ),
       amount: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}amount'],
@@ -3735,6 +3779,14 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
   final int accountId;
   final int? destinationAccountId;
   final int? categoryId;
+
+  /// Proyecto al que pertenece, solo para una regla de cobro de proyecto.
+  ///
+  /// Un cobro de proyecto siempre pertenece a un proyecto (ECON-000E), fijo
+  /// o suelto; el de abajo lo exige con la misma clave compuesta que ya usa
+  /// `transactions`.
+  final int? projectId;
+  final int? clientId;
   final int amount;
   final String currency;
   final RecurrenceFrequency frequency;
@@ -3755,6 +3807,8 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
     required this.accountId,
     this.destinationAccountId,
     this.categoryId,
+    this.projectId,
+    this.clientId,
     required this.amount,
     required this.currency,
     required this.frequency,
@@ -3785,6 +3839,12 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
     }
     if (!nullToAbsent || categoryId != null) {
       map['category_id'] = Variable<int>(categoryId);
+    }
+    if (!nullToAbsent || projectId != null) {
+      map['project_id'] = Variable<int>(projectId);
+    }
+    if (!nullToAbsent || clientId != null) {
+      map['client_id'] = Variable<int>(clientId);
     }
     map['amount'] = Variable<int>(amount);
     map['currency'] = Variable<String>(currency);
@@ -3834,6 +3894,12 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
       categoryId: categoryId == null && nullToAbsent
           ? const Value.absent()
           : Value(categoryId),
+      projectId: projectId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(projectId),
+      clientId: clientId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(clientId),
       amount: Value(amount),
       currency: Value(currency),
       frequency: Value(frequency),
@@ -3872,6 +3938,8 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
         json['destinationAccountId'],
       ),
       categoryId: serializer.fromJson<int?>(json['categoryId']),
+      projectId: serializer.fromJson<int?>(json['projectId']),
+      clientId: serializer.fromJson<int?>(json['clientId']),
       amount: serializer.fromJson<int>(json['amount']),
       currency: serializer.fromJson<String>(json['currency']),
       frequency: serializer.fromJson<RecurrenceFrequency>(json['frequency']),
@@ -3897,6 +3965,8 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
       'accountId': serializer.toJson<int>(accountId),
       'destinationAccountId': serializer.toJson<int?>(destinationAccountId),
       'categoryId': serializer.toJson<int?>(categoryId),
+      'projectId': serializer.toJson<int?>(projectId),
+      'clientId': serializer.toJson<int?>(clientId),
       'amount': serializer.toJson<int>(amount),
       'currency': serializer.toJson<String>(currency),
       'frequency': serializer.toJson<RecurrenceFrequency>(frequency),
@@ -3920,6 +3990,8 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
     int? accountId,
     Value<int?> destinationAccountId = const Value.absent(),
     Value<int?> categoryId = const Value.absent(),
+    Value<int?> projectId = const Value.absent(),
+    Value<int?> clientId = const Value.absent(),
     int? amount,
     String? currency,
     RecurrenceFrequency? frequency,
@@ -3942,6 +4014,8 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
         ? destinationAccountId.value
         : this.destinationAccountId,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
+    projectId: projectId.present ? projectId.value : this.projectId,
+    clientId: clientId.present ? clientId.value : this.clientId,
     amount: amount ?? this.amount,
     currency: currency ?? this.currency,
     frequency: frequency ?? this.frequency,
@@ -3968,6 +4042,8 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
       categoryId: data.categoryId.present
           ? data.categoryId.value
           : this.categoryId,
+      projectId: data.projectId.present ? data.projectId.value : this.projectId,
+      clientId: data.clientId.present ? data.clientId.value : this.clientId,
       amount: data.amount.present ? data.amount.value : this.amount,
       currency: data.currency.present ? data.currency.value : this.currency,
       frequency: data.frequency.present ? data.frequency.value : this.frequency,
@@ -3997,6 +4073,8 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
           ..write('accountId: $accountId, ')
           ..write('destinationAccountId: $destinationAccountId, ')
           ..write('categoryId: $categoryId, ')
+          ..write('projectId: $projectId, ')
+          ..write('clientId: $clientId, ')
           ..write('amount: $amount, ')
           ..write('currency: $currency, ')
           ..write('frequency: $frequency, ')
@@ -4013,7 +4091,7 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     createdAt,
     updatedAt,
@@ -4022,6 +4100,8 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
     accountId,
     destinationAccountId,
     categoryId,
+    projectId,
+    clientId,
     amount,
     currency,
     frequency,
@@ -4033,7 +4113,7 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
     nextDate,
     isActive,
     autoGenerate,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4046,6 +4126,8 @@ class RecurringRule extends DataClass implements Insertable<RecurringRule> {
           other.accountId == this.accountId &&
           other.destinationAccountId == this.destinationAccountId &&
           other.categoryId == this.categoryId &&
+          other.projectId == this.projectId &&
+          other.clientId == this.clientId &&
           other.amount == this.amount &&
           other.currency == this.currency &&
           other.frequency == this.frequency &&
@@ -4068,6 +4150,8 @@ class RecurringRulesCompanion extends UpdateCompanion<RecurringRule> {
   final Value<int> accountId;
   final Value<int?> destinationAccountId;
   final Value<int?> categoryId;
+  final Value<int?> projectId;
+  final Value<int?> clientId;
   final Value<int> amount;
   final Value<String> currency;
   final Value<RecurrenceFrequency> frequency;
@@ -4088,6 +4172,8 @@ class RecurringRulesCompanion extends UpdateCompanion<RecurringRule> {
     this.accountId = const Value.absent(),
     this.destinationAccountId = const Value.absent(),
     this.categoryId = const Value.absent(),
+    this.projectId = const Value.absent(),
+    this.clientId = const Value.absent(),
     this.amount = const Value.absent(),
     this.currency = const Value.absent(),
     this.frequency = const Value.absent(),
@@ -4109,6 +4195,8 @@ class RecurringRulesCompanion extends UpdateCompanion<RecurringRule> {
     required int accountId,
     this.destinationAccountId = const Value.absent(),
     this.categoryId = const Value.absent(),
+    this.projectId = const Value.absent(),
+    this.clientId = const Value.absent(),
     required int amount,
     required String currency,
     required RecurrenceFrequency frequency,
@@ -4136,6 +4224,8 @@ class RecurringRulesCompanion extends UpdateCompanion<RecurringRule> {
     Expression<int>? accountId,
     Expression<int>? destinationAccountId,
     Expression<int>? categoryId,
+    Expression<int>? projectId,
+    Expression<int>? clientId,
     Expression<int>? amount,
     Expression<String>? currency,
     Expression<String>? frequency,
@@ -4158,6 +4248,8 @@ class RecurringRulesCompanion extends UpdateCompanion<RecurringRule> {
       if (destinationAccountId != null)
         'destination_account_id': destinationAccountId,
       if (categoryId != null) 'category_id': categoryId,
+      if (projectId != null) 'project_id': projectId,
+      if (clientId != null) 'client_id': clientId,
       if (amount != null) 'amount': amount,
       if (currency != null) 'currency': currency,
       if (frequency != null) 'frequency': frequency,
@@ -4181,6 +4273,8 @@ class RecurringRulesCompanion extends UpdateCompanion<RecurringRule> {
     Value<int>? accountId,
     Value<int?>? destinationAccountId,
     Value<int?>? categoryId,
+    Value<int?>? projectId,
+    Value<int?>? clientId,
     Value<int>? amount,
     Value<String>? currency,
     Value<RecurrenceFrequency>? frequency,
@@ -4202,6 +4296,8 @@ class RecurringRulesCompanion extends UpdateCompanion<RecurringRule> {
       accountId: accountId ?? this.accountId,
       destinationAccountId: destinationAccountId ?? this.destinationAccountId,
       categoryId: categoryId ?? this.categoryId,
+      projectId: projectId ?? this.projectId,
+      clientId: clientId ?? this.clientId,
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,
       frequency: frequency ?? this.frequency,
@@ -4244,6 +4340,12 @@ class RecurringRulesCompanion extends UpdateCompanion<RecurringRule> {
     }
     if (categoryId.present) {
       map['category_id'] = Variable<int>(categoryId.value);
+    }
+    if (projectId.present) {
+      map['project_id'] = Variable<int>(projectId.value);
+    }
+    if (clientId.present) {
+      map['client_id'] = Variable<int>(clientId.value);
     }
     if (amount.present) {
       map['amount'] = Variable<int>(amount.value);
@@ -4300,6 +4402,8 @@ class RecurringRulesCompanion extends UpdateCompanion<RecurringRule> {
           ..write('accountId: $accountId, ')
           ..write('destinationAccountId: $destinationAccountId, ')
           ..write('categoryId: $categoryId, ')
+          ..write('projectId: $projectId, ')
+          ..write('clientId: $clientId, ')
           ..write('amount: $amount, ')
           ..write('currency: $currency, ')
           ..write('frequency: $frequency, ')
@@ -5476,6 +5580,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_rules_account',
     'CREATE INDEX idx_rules_account ON recurring_rules (account_id)',
   );
+  late final Index idxRulesProject = Index(
+    'idx_rules_project',
+    'CREATE INDEX idx_rules_project ON recurring_rules (project_id)',
+  );
   late final Index idxTxExpected = Index(
     'idx_tx_expected',
     'CREATE INDEX idx_tx_expected ON transactions (expected_date)',
@@ -5541,6 +5649,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     idxProjectsClient,
     idxRulesActiveNext,
     idxRulesAccount,
+    idxRulesProject,
     idxTxExpected,
     idxTxActual,
     idxTxStatus,

@@ -150,7 +150,7 @@ void main() {
       final result = project(
         movements: [
           movement(
-            type: MovementType.projectIncome,
+            type: MovementType.otherIncome,
             status: MovementStatus.pendiente,
             amount: 50000,
             expectedDate: DateTime.utc(2026, 10, 5),
@@ -159,6 +159,44 @@ void main() {
       );
       expect(result.endingBalance, 432000 + 50000);
     });
+
+    test(
+      // DEC-016: un cobro de proyecto suelto no tiene la misma certeza de
+      // repetirse que un gasto fijo o una nomina, asi que no entra en la
+      // proyeccion aunque este anotado con fecha futura.
+      'un cobro de proyecto suelto no sube la proyeccion, aunque este anotado',
+      () {
+        final result = project(
+          movements: [
+            movement(
+              type: MovementType.projectIncome,
+              status: MovementStatus.pendiente,
+              amount: 50000,
+              expectedDate: DateTime.utc(2026, 10, 5),
+            ),
+          ],
+        );
+        expect(result.endingBalance, 432000);
+      },
+    );
+
+    test(
+      'un cobro de proyecto fijo, con regla detras, si sube la proyeccion',
+      () {
+        final result = project(
+          movements: [
+            movement(
+              type: MovementType.projectIncome,
+              status: MovementStatus.pendiente,
+              amount: 50000,
+              expectedDate: DateTime.utc(2026, 10, 5),
+              recurringRuleId: 7,
+            ),
+          ],
+        );
+        expect(result.endingBalance, 432000 + 50000);
+      },
+    );
 
     test('lo ya cobrado no se cuenta dos veces', () {
       // Ya esta dentro del saldo real, no puede volver a sumar.

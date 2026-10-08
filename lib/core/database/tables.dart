@@ -191,6 +191,7 @@ class SavingsGoals extends Table with _Timestamps {
 /// `autoGenerate` permanece en false y no hay scheduler.
 @TableIndex(name: 'idx_rules_active_next', columns: {#isActive, #nextDate})
 @TableIndex(name: 'idx_rules_account', columns: {#accountId})
+@TableIndex(name: 'idx_rules_project', columns: {#projectId})
 class RecurringRules extends Table with _Timestamps {
   TextColumn get concept => text().withLength(min: 1, max: 120)();
 
@@ -203,6 +204,15 @@ class RecurringRules extends Table with _Timestamps {
 
   IntColumn get categoryId =>
       integer().nullable().references(Categories, #id)();
+
+  /// Proyecto al que pertenece, solo para una regla de cobro de proyecto.
+  ///
+  /// Un cobro de proyecto siempre pertenece a un proyecto (ECON-000E), fijo
+  /// o suelto; el de abajo lo exige con la misma clave compuesta que ya usa
+  /// `transactions`.
+  IntColumn get projectId => integer().nullable()();
+
+  IntColumn get clientId => integer().nullable().references(Clients, #id)();
 
   IntColumn get amount => integer()();
 
@@ -231,6 +241,10 @@ class RecurringRules extends Table with _Timestamps {
     'FOREIGN KEY (account_id, currency) REFERENCES accounts (id, currency)',
     'FOREIGN KEY (destination_account_id) REFERENCES accounts (id)',
     'FOREIGN KEY (category_id) REFERENCES categories (id)',
+    // El cliente de la regla debe ser el cliente real del proyecto, igual
+    // que en `transactions`.
+    'FOREIGN KEY (project_id, client_id) REFERENCES projects (id, client_id)',
+    'FOREIGN KEY (client_id) REFERENCES clients (id)',
     'CHECK ($_currencyCheck)',
     'CHECK (type IN (${movementTypeConverter.sqlValues}))',
     'CHECK (frequency IN (${recurrenceFrequencyConverter.sqlValues}))',
@@ -244,6 +258,13 @@ class RecurringRules extends Table with _Timestamps {
     "CHECK ((type = 'transfer' AND destination_account_id IS NOT NULL "
         'AND destination_account_id <> account_id) OR '
         "(type <> 'transfer' AND destination_account_id IS NULL))",
+    // Un cobro de proyecto fijo siempre tiene proyecto; ningun otro tipo de
+    // regla lo tiene. Evita una regla de gasto o salario colgada de un
+    // proyecto por error.
+    "CHECK ((type = 'project_income' AND project_id IS NOT NULL "
+        'AND client_id IS NOT NULL) OR '
+        "(type <> 'project_income' AND project_id IS NULL "
+        'AND client_id IS NULL))',
   ];
 }
 

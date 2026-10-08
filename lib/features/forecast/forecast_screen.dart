@@ -103,7 +103,11 @@ class _ForecastScreenState extends ConsumerState<ForecastScreen> {
             'No estima gastos variables por tu media de meses anteriores, y '
             'no da por cobrado lo que solo esta previsto. Si una fecha ya '
             'esta anotada como movimiento de una regla, no se cuenta dos '
-            'veces.',
+            'veces.\n\n'
+            'Un cobro de proyecto solo entra aqui si es fijo (tiene una '
+            'regla detras). Uno suelto, de un trabajo puntual, se ve en '
+            'Ingresos pero no en esta proyeccion: no hay certeza de que '
+            'vaya a repetirse.',
           ),
         ),
         actions: [

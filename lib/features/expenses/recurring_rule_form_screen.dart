@@ -9,20 +9,29 @@ import '../../core/utils/money.dart';
 import '../../core/widgets/form_fields.dart';
 import '../../data/account_repository.dart';
 import '../../data/movement_repository.dart';
+import '../../data/project_repository.dart';
 import '../../data/recurring_rule_repository.dart';
 import '../movements/quick_create_dialogs.dart';
-import 'expenses_screen.dart';
 
 /// Alta y edicion de una regla recurrente.
+///
+/// Sirve tanto para un gasto fijo como para un cobro de proyecto fijo
+/// (DEC-016): [type] y [projectId] son el punto de partida de un alta, pero
+/// al editar mandan los de la regla ya guardada, no los del constructor —
+/// de lo contrario, editar cualquier regla la convertiria en un gasto.
 class RecurringRuleFormScreen extends ConsumerStatefulWidget {
   const RecurringRuleFormScreen({
     super.key,
     this.ruleId,
     this.type = MovementType.expense,
+    this.projectId,
   });
 
   final int? ruleId;
   final MovementType type;
+
+  /// Proyecto del cobro fijo, solo tiene sentido con `type: projectIncome`.
+  final int? projectId;
 
   @override
   ConsumerState<RecurringRuleFormScreen> createState() =>
@@ -36,6 +45,8 @@ class _RecurringRuleFormScreenState
   final _amount = TextEditingController();
   final _interval = TextEditingController(text: '1');
 
+  late MovementType _type = widget.type;
+  late int? _projectId = widget.projectId;
   int? _accountId;
   int? _categoryId;
   RecurrenceFrequency _frequency = RecurrenceFrequency.monthly;
@@ -45,6 +56,8 @@ class _RecurringRuleFormScreenState
   bool _saving = false;
   bool _loaded = false;
   String? _error;
+
+  bool get _isProjectIncome => _type == MovementType.projectIncome;
 
   @override
   void dispose() {
@@ -57,6 +70,8 @@ class _RecurringRuleFormScreenState
   void _loadExisting(RecurringRule rule) {
     if (_loaded) return;
     _loaded = true;
+    _type = rule.type;
+    _projectId = rule.projectId;
     _concept.text = rule.concept;
     _amount.text = (rule.amount / 100).toStringAsFixed(2);
     _interval.text = '${rule.intervalCount}';
@@ -77,6 +92,10 @@ class _RecurringRuleFormScreenState
       setState(() => _error = 'Elige una cuenta.');
       return;
     }
+    if (_isProjectIncome && _projectId == null) {
+      setState(() => _error = 'Elige el proyecto de este cobro fijo.');
+      return;
+    }
 
     setState(() {
       _saving = true;
@@ -89,9 +108,10 @@ class _RecurringRuleFormScreenState
           .saveRule(
             id: widget.ruleId,
             concept: _concept.text,
-            type: widget.type,
+            type: _type,
             accountId: accountId,
             categoryId: _categoryId,
+            projectId: _projectId,
             amount: Money.tryParse(_amount.text) ?? 0,
             frequency: _frequency,
             intervalCount: int.tryParse(_interval.text) ?? 1,
@@ -114,10 +134,22 @@ class _RecurringRuleFormScreenState
     }
   }
 
+  String get _title {
+    final editing = widget.ruleId != null;
+    if (_isProjectIncome) {
+      return editing ? 'Editar cobro fijo' : 'Nuevo cobro fijo';
+    }
+    return editing ? 'Editar regla' : 'Nueva regla';
+  }
+
   @override
   Widget build(BuildContext context) {
     final accounts = ref.watch(accountsProvider);
-    final categories = ref.watch(expenseCategoriesProvider);
+    final categories = ref.watch(
+      _categoriesProvider(
+        _type.isIncome ? CategoryKind.income : CategoryKind.expense,
+      ),
+    );
 
     if (widget.ruleId != null) {
       final rule = ref.watch(_ruleProvider(widget.ruleId!)).value;
@@ -126,7 +158,7 @@ class _RecurringRuleFormScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.ruleId == null ? 'Nueva regla' : 'Editar regla'),
+        title: Text(_title),
         actions: [
           if (widget.ruleId != null)
             IconButton(
@@ -175,7 +207,7 @@ class _RecurringRuleFormScreenState
       builder: (context) => AlertDialog(
         title: const Text('Eliminar regla'),
         content: const Text(
-          'Se dejaran de calcular sus proximas fechas. Los gastos ya '
+          'Se dejaran de calcular sus proximas fechas. Los movimientos ya '
           'registrados no se tocan.',
         ),
         actions: [
@@ -214,6 +246,10 @@ class _RecurringRuleFormScreenState
           ),
           const SizedBox(height: AppTokens.space4),
           AmountField(controller: _amount),
+          if (_isProjectIncome) ...[
+            const SizedBox(height: AppTokens.space4),
+            _ProjectLabel(projectId: _projectId),
+          ],
           const SizedBox(height: AppTokens.space4),
           OptionField<int>(
             label: 'Cuenta',
@@ -336,3 +372,53 @@ class _RecurringRuleFormScreenState
 final _ruleProvider = StreamProvider.family<RecurringRule?, int>(
   (ref, id) => ref.watch(recurringRuleRepositoryProvider).watchRule(id),
 );
+
+final _categoriesProvider = StreamProvider.family<List<Category>, CategoryKind>(
+  (ref, kind) => ref.watch(accountRepositoryProvider).watchCategories(kind),
+);
+
+/// Cliente y proyecto del cobro fijo, de solo lectura.
+///
+/// No es un selector: el proyecto se fija al crear el cobro fijo desde su
+/// ficha, igual que un cobro suelto siempre pertenece a un proyecto
+/// (ECON-000E). Cambiar de proyecto una regla ya creada no esta soportado.
+class _ProjectLabel extends ConsumerWidget {
+  const _ProjectLabel({required this.projectId});
+
+  final int? projectId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final projects = ref.watch(activeProjectsProvider).value ?? const [];
+    final summary = projects
+        .where((p) => p.project.id == projectId)
+        .firstOrNull;
+
+    return Container(
+      padding: const EdgeInsets.all(AppTokens.space3),
+      decoration: BoxDecoration(
+        color: AppTokens.surfaceElevated,
+        borderRadius: BorderRadius.circular(AppTokens.radiusControl),
+        border: Border.all(color: AppTokens.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.folder_shared_outlined,
+            size: 18,
+            color: AppTokens.textSecondary,
+          ),
+          const SizedBox(width: AppTokens.space3),
+          Expanded(
+            child: Text(
+              summary == null
+                  ? 'Proyecto'
+                  : '${summary.client.name} · ${summary.project.name}',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

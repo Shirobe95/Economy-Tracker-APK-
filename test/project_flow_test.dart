@@ -4,6 +4,7 @@ import 'package:economy_tracker/core/database/database_provider.dart';
 import 'package:economy_tracker/core/database/enums.dart';
 import 'package:economy_tracker/data/movement_repository.dart';
 import 'package:economy_tracker/data/project_repository.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
@@ -223,5 +224,65 @@ void main() {
       final clients = await db.select(db.clients).get();
       expect(clients.single.name, 'Futon Espai');
     });
+
+    appTest(
+      // DEC-016: un cobro fijo se crea desde la ficha del proyecto, se
+      // repite solo y queda ligado al proyecto desde el primer momento.
+      'un cobro fijo se crea desde la ficha del proyecto',
+      (tester, db) async {
+        await db
+            .into(db.accounts)
+            .insert(
+              AccountsCompanion.insert(
+                name: 'Cuenta principal',
+                type: AccountType.bank,
+                currency: 'EUR',
+              ),
+            );
+        await tester.pumpAndSettle();
+
+        await tapText(tester, 'Ingresos');
+        await tester.tap(find.byTooltip('Clientes y proyectos'));
+        await tester.pumpAndSettle();
+
+        await tapText(tester, 'Crear cliente');
+        await enterInField(tester, 'Nombre', 'Futon Espai');
+        await tapText(tester, 'Guardar');
+
+        await tapText(tester, 'Futon Espai');
+        await tapText(tester, 'Nuevo proyecto');
+        await enterInField(tester, 'Nombre', 'Mantenimiento web');
+        await tapText(tester, 'Guardar');
+
+        await tapText(tester, 'Mantenimiento web');
+        expect(
+          find.text(
+            'Sin cobros fijos. Un cobro fijo se repite solo y es el '
+            'unico tipo de cobro que entra en la Prevision.',
+          ),
+          findsOneWidget,
+        );
+
+        await tapText(tester, 'Cobro fijo');
+        await enterInField(tester, 'Concepto', 'Cuota mensual');
+        await enterInField(tester, 'Importe', '300');
+        // El formulario es largo: el boton queda fuera del extent inicial.
+        await tester.dragUntilVisible(
+          find.text('Guardar'),
+          find.byType(ListView),
+          const Offset(0, -300),
+        );
+        await tester.tap(find.text('Guardar'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Cuota mensual'), findsOneWidget);
+
+        final rules = await db.select(db.recurringRules).get();
+        expect(rules.single.type, MovementType.projectIncome);
+        expect(rules.single.amount, 30000);
+        final projectId = (await db.select(db.projects).get()).single.id;
+        expect(rules.single.projectId, projectId);
+      },
+    );
   });
 }

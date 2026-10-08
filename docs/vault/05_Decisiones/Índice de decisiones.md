@@ -18,3 +18,4 @@ saliendo de la reconstrucción.
 - [[DEC-013 · Mes de arranque y meses parciales]]
 - [[DEC-014 · Teclado propio para el PIN]]
 - [[DEC-015 · Cuadrar el saldo con el banco]]
+- [[DEC-016 · Cobro de proyecto fijo, y por que el suelto no entra en la previsión]]
