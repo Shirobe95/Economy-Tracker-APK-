@@ -6,7 +6,6 @@ import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
 import '../../core/widgets/feature_placeholder.dart';
 import '../../core/widgets/finance_card.dart';
-import '../../core/widgets/form_fields.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/section_header.dart';
 import '../../data/account_repository.dart';
@@ -16,6 +15,7 @@ import '../../data/movement_repository.dart';
 import '../../data/salary_repository.dart';
 import '../dashboard/dashboard_screen.dart';
 import 'forecast_chart.dart';
+import 'monthly_breakdown.dart';
 
 /// Prevision de saldo a 3, 6, 12 y 24 meses (UI-11).
 class ForecastScreen extends ConsumerStatefulWidget {
@@ -100,8 +100,13 @@ class _ForecastScreenState extends ConsumerState<ForecastScreen> {
             'Una fuente salarial solo se proyecta si tiene importe, '
             'frecuencia y dia de cobro. Si le falta alguno, no aparece: '
             'preferimos que eches en falta un ingreso a inventarnoslo.\n\n'
-            'No estima gastos variables por tu media de meses anteriores, y '
-            'no da por cobrado lo que solo esta previsto. Si una fecha ya '
+            'El gasto del dia a dia es distinto: un mes futuro todavia no '
+            'tiene nada anotado suelto, asi que se completa con la media de '
+            'lo que de verdad has gastado asi en los ultimos meses. Esa '
+            'parte se marca como "estimado" en el desglose mensual, para que '
+            'se distinga de lo que ya esta anotado. Sin historia para '
+            'calcular una media, no se inventa nada.\n\n'
+            'No da por cobrado lo que solo esta previsto, y si una fecha ya '
             'esta anotada como movimiento de una regla, no se cuenta dos '
             'veces.\n\n'
             'Un cobro de proyecto solo entra aqui si es fijo (tiene una '
@@ -241,13 +246,7 @@ class _Body extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppTokens.space5),
-          const SectionHeader('Proximos hitos'),
-          const SizedBox(height: AppTokens.space2),
-          for (final milestone in result.milestones.take(8))
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppTokens.space2),
-              child: _MilestoneTile(milestone: milestone),
-            ),
+          MonthlyBreakdown(result: result),
         ],
       ],
     );
@@ -344,63 +343,6 @@ class _StatCard extends StatelessWidget {
               compact: true,
               style: Theme.of(context).textTheme.titleLarge,
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MilestoneTile extends StatelessWidget {
-  const _MilestoneTile({required this.milestone});
-
-  final ForecastMilestone milestone;
-
-  @override
-  Widget build(BuildContext context) {
-    return FinanceCard(
-      padding: const EdgeInsets.all(AppTokens.space3),
-      child: Row(
-        children: [
-          RoundIcon(
-            milestone.isIncome
-                ? Icons.arrow_upward_rounded
-                : Icons.arrow_downward_rounded,
-            color: milestone.isIncome ? AppTokens.positive : AppTokens.negative,
-            size: 36,
-          ),
-          const SizedBox(width: AppTokens.space3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  milestone.concept,
-                  style: Theme.of(context).textTheme.titleMedium,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Row(
-                  children: [
-                    Text(
-                      formatDay(milestone.date),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    if (milestone.fromRule) ...[
-                      const SizedBox(width: AppTokens.space2),
-                      Text(
-                        '· recurrente',
-                        style: Theme.of(context).textTheme.bodySmall
-                            ?.copyWith(color: AppTokens.textMuted),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-          MoneyText(
-            milestone.isIncome ? milestone.amount : -milestone.amount,
-            signed: true,
-          ),
         ],
       ),
     );

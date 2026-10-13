@@ -12,20 +12,38 @@ class ForecastPoint {
     required this.balance,
     required this.income,
     required this.expense,
+    required this.fixedExpense,
+    required this.variableExpense,
   });
 
   /// Primer dia del mes al que corresponde el punto.
   final DateTime month;
 
-  /// Saldo acumulado estimado al terminar ese mes.
+  /// Saldo acumulado estimado al terminar ese mes. Incluye lo acumulado de
+  /// los meses anteriores: no es el balance de este mes solo, ver [net].
   final int balance;
 
   /// Entradas de dinero estimadas en ese mes.
   final int income;
 
-  /// Salidas de dinero estimadas en ese mes.
+  /// Salidas de dinero estimadas en ese mes. Es la suma de [fixedExpense] y
+  /// [variableExpense]: se desglosan porque no pesan igual de cara al mes
+  /// que viene -una regla recurrente no sorprende, el gasto del dia a dia si-.
   final int expense;
 
+  /// La parte de [expense] que viene de una regla recurrente activa: el
+  /// alquiler, una suscripcion. Se repite igual se haga lo que se haga.
+  final int fixedExpense;
+
+  /// La parte de [expense] que no viene de ninguna regla: lo ya anotado
+  /// suelto para ese mes, o -si no hay nada anotado todavia- la media de lo
+  /// que de verdad se gasta variable al mes, ver
+  /// [ForecastEngine._historicalAverageVariableExpense].
+  final int variableExpense;
+
+  /// El balance de este mes solo: lo que entro menos lo que salio, sin
+  /// mezclarlo con lo acumulado de meses anteriores. Cada mes se juzga por
+  /// lo que paso en el.
   int get net => income - expense;
 }
 
@@ -37,6 +55,7 @@ class ForecastMilestone {
     required this.amount,
     required this.isIncome,
     required this.fromRule,
+    this.isEstimate = false,
   });
 
   final DateTime date;
@@ -50,6 +69,12 @@ class ForecastMilestone {
   /// registrado. Se distingue para no dar por comprometido lo que solo es
   /// una repeticion esperada.
   final bool fromRule;
+
+  /// True cuando el importe no viene de ningun movimiento ni regla, sino de
+  /// la media historica de gasto variable -ver
+  /// [ForecastEngine._historicalAverageVariableExpense]-. La interfaz debe
+  /// distinguirlo de un hito real: es una estimacion, no algo anotado.
+  final bool isEstimate;
 }
 
 /// Resultado de una proyeccion.
@@ -101,16 +126,24 @@ class ForecastResult {
 ///
 /// Proyecta el saldo combinando lo que ya está comprometido (movimientos
 /// previstos o pendientes con fecha futura) con lo que se espera que se
-/// repita (reglas recurrentes activas).
+/// repita (reglas recurrentes activas y fuentes salariales).
 ///
-/// Lo que el motor no hace, a propósito: no inventa gastos variables por
-/// media histórica, no da por cobrado lo que solo está previsto y no escribe
-/// nada en la base. Proyectar es una consulta, no un efecto.
+/// Para el gasto del día a día -el que no viene de ninguna regla- un mes sin
+/// nada anotado todavía no se proyecta como cero: se usa la media de lo que
+/// de verdad se ha gastado así en los últimos meses, ver
+/// [_historicalAverageVariableExpense]. Cada hito así generado queda marcado
+/// con [ForecastMilestone.isEstimate] para que la interfaz pueda distinguirlo
+/// de lo real. Lo que el motor sigue sin hacer, a propósito: no da por
+/// cobrado lo que solo está previsto, no estima ingresos y no escribe nada
+/// en la base. Proyectar es una consulta, no un efecto.
 abstract final class ForecastEngine {
   const ForecastEngine._();
 
   /// Horizontes que ofrece la interfaz, en meses.
   static const List<int> horizons = [3, 6, 12, 24];
+
+  /// Meses de historia que se miran para la media de gasto variable.
+  static const int _historyWindowMonths = 6;
 
   /// Proyecta [months] meses a partir de [from].
   static ForecastResult project({
@@ -127,8 +160,16 @@ abstract final class ForecastEngine {
     final committed = _committedMilestones(movements, today, months);
     final recurring = _recurringMilestones(rules, movements, today, months);
     final salaries = _salaryMilestones(salarySources, movements, today, months);
-    final milestones = [...committed, ...recurring, ...salaries]
-      ..sort((a, b) => a.date.compareTo(b.date));
+    final average = _historicalAverageVariableExpense(movements, today);
+    final estimated = _estimatedVariableMilestones(
+      committed: committed,
+      today: today,
+      months: months,
+      averageMonthlyVariableExpense: average,
+    );
+    final milestones =
+        [...committed, ...recurring, ...salaries, ...estimated]
+          ..sort((a, b) => a.date.compareTo(b.date));
 
     final points = _accumulate(
       startingBalance: startingBalance,
@@ -302,7 +343,100 @@ abstract final class ForecastEngine {
     return milestones;
   }
 
+  /// Media mensual de gasto variable real de los ultimos
+  /// [_historyWindowMonths] meses, para estimar los meses que todavia no
+  /// tienen nada anotado.
+  ///
+  /// Solo cuenta gasto realizado (pagado), sin regla detras: lo fijo ya
+  /// tiene su propia proyeccion exacta via reglas, y no hace falta -ni
+  /// conviene- adivinarlo con una media.
+  ///
+  /// `null` cuando no hay ningun gasto variable real en toda la historia:
+  /// sin referencia alguna, estimar seria inventar un numero de la nada. Con
+  /// historia, la media se calcula sobre la ventana completa de meses
+  /// -como [ReportResult.averageMonthlyExpense]-, no solo sobre los meses
+  /// que tuvieron movimiento, para no inflar la media de alguien que algunos
+  /// meses no gasta nada variable.
+  static int? _historicalAverageVariableExpense(
+    List<Transaction> movements,
+    DateTime today, {
+    int months = _historyWindowMonths,
+  }) {
+    final hasHistory = movements.any(
+      (m) =>
+          !m.isDeleted &&
+          m.type.isExpense &&
+          m.status.isRealised &&
+          m.recurringRuleId == null,
+    );
+    if (!hasHistory) return null;
+
+    final windowStart = DateTime.utc(today.year, today.month - months);
+    final total =
+        Money.sum([
+          for (final m in movements)
+            if (!m.isDeleted &&
+                m.type.isExpense &&
+                m.status.isRealised &&
+                m.recurringRuleId == null &&
+                m.actualDate != null &&
+                !m.actualDate!.isBefore(windowStart) &&
+                m.actualDate!.isBefore(today))
+              m.amount,
+        ]) ??
+        0;
+    return total ~/ months;
+  }
+
+  /// Un hito estimado de gasto variable por cada mes proyectado que todavia
+  /// no tiene ningun gasto comprometido sin regla: el dia a dia de ese mes
+  /// todavia no se ha anotado, asi que se completa con la media historica.
+  ///
+  /// Si el mes ya tiene algo comprometido -aunque sea un solo movimiento
+  /// suelto-, no se anade la estimacion encima: eso doblaria el gasto de ese
+  /// mes en vez de completarlo.
+  static List<ForecastMilestone> _estimatedVariableMilestones({
+    required List<ForecastMilestone> committed,
+    required DateTime today,
+    required int months,
+    required int? averageMonthlyVariableExpense,
+  }) {
+    if (averageMonthlyVariableExpense == null ||
+        averageMonthlyVariableExpense <= 0) {
+      return const [];
+    }
+
+    final monthsAlreadyCommitted = <String>{
+      for (final milestone in committed)
+        if (!milestone.isIncome)
+          '${milestone.date.year}-${milestone.date.month}',
+    };
+
+    return [
+      for (var offset = 0; offset < months; offset++)
+        if (() {
+          final month = DateTime.utc(today.year, today.month + offset);
+          return !monthsAlreadyCommitted.contains(
+            '${month.year}-${month.month}',
+          );
+        }())
+          ForecastMilestone(
+            date: DateTime.utc(today.year, today.month + offset),
+            concept: 'Gasto variable (previsto)',
+            amount: averageMonthlyVariableExpense,
+            isIncome: false,
+            fromRule: false,
+            isEstimate: true,
+          ),
+    ];
+  }
+
   /// Reparte los hitos por mes y acumula el saldo.
+  ///
+  /// El gasto de cada mes se reparte entre [ForecastPoint.fixedExpense] -lo
+  /// que viene de una regla- y [ForecastPoint.variableExpense] -lo demas,
+  /// real o estimado-: son el mismo numero que antes sumaba [expense] a
+  /// secas, solo que ahora se sabe cuanto de cada.
   static List<ForecastPoint> _accumulate({
     required int startingBalance,
     required List<ForecastMilestone> milestones,
@@ -317,18 +451,22 @@ abstract final class ForecastEngine {
       final nextMonth = DateTime.utc(today.year, today.month + offset + 1);
 
       var income = BigInt.zero;
-      var expense = BigInt.zero;
+      var fixedExpense = BigInt.zero;
+      var variableExpense = BigInt.zero;
 
       for (final milestone in milestones) {
         if (milestone.date.isBefore(month)) continue;
         if (!milestone.date.isBefore(nextMonth)) continue;
         if (milestone.isIncome) {
           income += BigInt.from(milestone.amount);
+        } else if (milestone.fromRule) {
+          fixedExpense += BigInt.from(milestone.amount);
         } else {
-          expense += BigInt.from(milestone.amount);
+          variableExpense += BigInt.from(milestone.amount);
         }
       }
 
+      final expense = fixedExpense + variableExpense;
       balance += income - expense;
       points.add(
         ForecastPoint(
@@ -336,6 +474,8 @@ abstract final class ForecastEngine {
           balance: _clampToInt(balance),
           income: _clampToInt(income),
           expense: _clampToInt(expense),
+          fixedExpense: _clampToInt(fixedExpense),
+          variableExpense: _clampToInt(variableExpense),
         ),
       );
     }

@@ -536,5 +536,148 @@ void main() {
       expect(result.milestones.where((m) => m.fromRule).length, 3);
       expect(result.milestones.where((m) => !m.fromRule).length, 1);
     });
+
+    test('un punto desglosa el gasto en fijo y variable', () {
+      final result = project(
+        movements: [
+          movement(
+            id: 1,
+            type: MovementType.expense,
+            status: MovementStatus.pendiente,
+            amount: 3000,
+            expectedDate: DateTime.utc(2026, 10, 10),
+          ),
+        ],
+        rules: [
+          rule(
+            id: 2,
+            type: MovementType.expense,
+            amount: 5000,
+            startDate: DateTime.utc(2026, 9, 20),
+          ),
+        ],
+        months: 3,
+      );
+      final octubre = result.points[1];
+      expect(octubre.fixedExpense, 5000);
+      expect(octubre.variableExpense, 3000);
+      expect(octubre.expense, 8000);
+      expect(octubre.expense, octubre.fixedExpense + octubre.variableExpense);
+    });
+  });
+
+  group('media historica de gasto variable', () {
+    test('sin ningun gasto variable real en la historia, no se estima nada', () {
+      final result = project(months: 3);
+      expect(
+        result.milestones.where((m) => m.isEstimate),
+        isEmpty,
+        reason: 'sin referencia alguna, no hay de donde sacar una media',
+      );
+      for (final point in result.points) {
+        expect(point.variableExpense, 0);
+      }
+    });
+
+    test('con historia, cada mes sin nada anotado recibe la media', () {
+      // Tres gastos sueltos ya pagados, sin regla: 100, 80 y 60, en los tres
+      // meses justo antes de hoy (13/09/2026). Media sobre la ventana de 6
+      // meses: (10000+8000+6000) / 6 = 4000.
+      final result = project(
+        movements: [
+          movement(
+            id: 1,
+            type: MovementType.expense,
+            status: MovementStatus.pagado,
+            amount: 10000,
+            expectedDate: DateTime.utc(2026, 8, 5),
+            actualDate: DateTime.utc(2026, 8, 5),
+          ),
+          movement(
+            id: 2,
+            type: MovementType.expense,
+            status: MovementStatus.pagado,
+            amount: 8000,
+            expectedDate: DateTime.utc(2026, 7, 5),
+            actualDate: DateTime.utc(2026, 7, 5),
+          ),
+          movement(
+            id: 3,
+            type: MovementType.expense,
+            status: MovementStatus.pagado,
+            amount: 6000,
+            expectedDate: DateTime.utc(2026, 6, 5),
+            actualDate: DateTime.utc(2026, 6, 5),
+          ),
+        ],
+        months: 3,
+      );
+
+      for (final point in result.points) {
+        expect(point.variableExpense, 4000);
+      }
+      expect(
+        result.milestones.where((m) => m.isEstimate).length,
+        3,
+        reason: 'un hito estimado por cada uno de los tres meses proyectados',
+      );
+    });
+
+    test('un mes con gasto variable ya anotado no recibe la estimacion encima', () {
+      final result = project(
+        movements: [
+          // Historia que genera una media positiva.
+          movement(
+            id: 1,
+            type: MovementType.expense,
+            status: MovementStatus.pagado,
+            amount: 12000,
+            expectedDate: DateTime.utc(2026, 8, 5),
+            actualDate: DateTime.utc(2026, 8, 5),
+          ),
+          // Octubre ya tiene un gasto variable suelto anotado.
+          movement(
+            id: 2,
+            type: MovementType.expense,
+            status: MovementStatus.pendiente,
+            amount: 2000,
+            expectedDate: DateTime.utc(2026, 10, 10),
+          ),
+        ],
+        months: 3,
+      );
+
+      final octubre = result.points[1];
+      expect(
+        octubre.variableExpense,
+        2000,
+        reason: 'lo ya anotado no se dobla con la media',
+      );
+      expect(
+        result.milestones.where(
+          (m) => m.isEstimate && m.date.month == 10,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('la estimacion no cuenta como gasto comprometido de verdad', () {
+      final result = project(
+        movements: [
+          movement(
+            id: 1,
+            type: MovementType.expense,
+            status: MovementStatus.pagado,
+            amount: 9000,
+            expectedDate: DateTime.utc(2026, 8, 5),
+            actualDate: DateTime.utc(2026, 8, 5),
+          ),
+        ],
+        months: 1,
+      );
+      final estimate = result.milestones.single;
+      expect(estimate.isEstimate, isTrue);
+      expect(estimate.fromRule, isFalse);
+    });
   });
 }
